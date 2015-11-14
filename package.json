@@ -15,13 +15,13 @@
   },
   "contributors": [
     {
-      "name": "Frank Astier",
-      "emai": ""
-    },
-    {
       "name": "Matthieu Monsch",
       "email": "monsch@alum.mit.edu"
-    }
+    },
+    {
+      "name": "Frank Astier",
+      "email": "fastier@yahoo.com"
+    },
   ],
   "license": "MIT"
 }
