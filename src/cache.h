@@ -11,6 +11,8 @@ using namespace std;
 /**
  * A simple LRU cache.
  * The unordered_map gives O(1) access to elements, the vector keeps recency info.
+ * The class provides a const API for now, as this cache probably doesn't need to 
+ * hold mutable objects.
  * 
  * TODO: replace unordered_map with Google sparsehash for speed.
  */
@@ -38,7 +40,7 @@ class cache
 
  private:
   unordered_map<key_type, value_type, bytearray_hash> _cache;
-  vector<pair<key_type, value_type>> _order;
+  vector<pair<key_type, value_type>> _order; // for LRU
 };
 
 
