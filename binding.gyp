@@ -4,8 +4,8 @@
       "target_name": "binding",
       "sources": [
         "src/binding.cpp",
-        "src/db.h",
-        "src/db.cpp"
+        "src/db.cpp",
+        "deps/murmur3/MurmurHash3.cpp"
       ],
       "cflags" : [
         "-Wno-c++11-extensions",
@@ -26,7 +26,10 @@
               "MACOSX_DEPLOYMENT_TARGET": "10.9"
             },
          }]
-       ]
+       ],
+      "include_dirs" : [
+          "<!(node -e \"require('nan')\")"
+      ]
     }
   ]
 }
