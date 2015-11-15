@@ -34,12 +34,11 @@ void test_cache()
   bytearray key{"abc"};
   bytearray value{"blabla"};
   c.put(key, value);
-  cout << c.contains(key) << endl;
-  cout << c.contains({"frank"}) << endl;
-  // assert(c.contains(3));
-  // string res;
-  // c.get(3, res);
-  // assert(res == msg);
+  assert(c.contains(key));
+  assert(!c.contains("frank"));
+  bytearray res = c.get(key);
+  assert(res.size == 6);
+  assert(res == value);
 }
 
 //--------------------------------------------------------------------------------

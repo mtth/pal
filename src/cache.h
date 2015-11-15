@@ -10,6 +10,9 @@ using namespace std;
 
 /**
  * A simple LRU cache.
+ * The unordered_map gives O(1) access to elements, the vector keeps recency info.
+ * 
+ * TODO: replace unordered_map with Google sparsehash for speed.
  */
 class cache
 {
@@ -28,10 +31,10 @@ class cache
     _order.push_back({key, value});
   }
   
-  /* void get(const char* key, const char* v) const */
-  /* { */
-  /*   v = V(static_cast<const V>(*_cache.at((char*)&key))); */
-  /* } */
+  const value_type get(const value_type& key) const
+  {
+    return _cache.at(key);  // operator[] doesn't apply to const objects
+  }
 
  private:
   unordered_map<key_type, value_type, bytearray_hash> _cache;
