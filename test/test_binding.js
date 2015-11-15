@@ -9,10 +9,15 @@ suite('binding', function () {
 
   suite('murmurHash', function () {
 
+    test('non buffer', function () {
+      assert.throws(function () { binding.hash(null); });
+      assert.throws(function () { binding.hash(123); });
+    });
+
     test('non-empty', function () {
-      var buf = new Buffer([1, 2]);
-      var hash = binding.murmurHash(buf);
-      assert.equal(hash.length, 16);
+      // Check that results are identical to PalDB's implementation.
+      assert.equal(binding.hash(new Buffer([12, 34])), 1762498445);
+      assert.equal(binding.hash(new Buffer([12, 34, 56, 78])), 1538392938);
     });
 
   });

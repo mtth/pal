@@ -3,7 +3,11 @@
 #include "../deps/murmur3/MurmurHash3.h"
 
 
-void MurmurHash(const Nan::FunctionCallbackInfo<v8::Value>& info) {
+/**
+ * Hashing function, equivalent with PalDB's implementation.
+ *
+ */
+void Hash(const Nan::FunctionCallbackInfo<v8::Value>& info) {
   v8::Local<v8::Value> buf = info[0];
   if (
     buf->IsNull() ||
@@ -11,26 +15,23 @@ void MurmurHash(const Nan::FunctionCallbackInfo<v8::Value>& info) {
     buf->ToObject().IsEmpty() ||
     !node::Buffer::HasInstance(buf->ToObject())
   ) {
-    // TODO: throw error.
+    Nan::ThrowError("first argument must be a buffer");
     return;
   }
 
   size_t size = node::Buffer::Length(buf->ToObject());
   char *data = node::Buffer::Data(buf->ToObject());
-
-  char out[16];
-  MurmurHash3_x64_128(data, size, 42, out);
-
-  Nan::MaybeLocal<v8::Object> hash = Nan::CopyBuffer(out, 16);
-  info.GetReturnValue().Set(hash.ToLocalChecked());
+  uint32_t hash;
+  MurmurHash3_x86_32(data, size, 42, &hash);
+  info.GetReturnValue().Set(hash & 0x7fffffff);
 }
 
 NAN_MODULE_INIT(InitAll) {
 
   Nan::Set(
     target,
-    Nan::New<v8::String>("murmurHash").ToLocalChecked(),
-    Nan::GetFunction(Nan::New<v8::FunctionTemplate>(MurmurHash)).ToLocalChecked()
+    Nan::New<v8::String>("hash").ToLocalChecked(),
+    Nan::GetFunction(Nan::New<v8::FunctionTemplate>(Hash)).ToLocalChecked()
   );
 
 }
