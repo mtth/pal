@@ -1,8 +1,6 @@
-// hello.cc
-
 #include <node.h>
 
-namespace demo {
+namespace pal {
 
 using v8::FunctionCallbackInfo;
 using v8::Isolate;
@@ -22,4 +20,4 @@ void init(Local<Object> exports) {
 
 NODE_MODULE(addon, init)
 
-}  // namespace demo
+}
