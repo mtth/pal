@@ -23,11 +23,15 @@ struct X {
   size_t size() const { return 2*4 + s.end() - s.begin(); }
   
   void to_stream(ostream& out) const {
-    out << x << y << s;
+    write_bytes(out, &x, &x + sizeof(int));
+    write_bytes(out, &y, &y + sizeof(int));
+    write_bytes(out, s);
   }
 
   void from_stream(istream& in) {
-    in >> x >> y >> s;
+    read_bytes(in, &x, &x + sizeof(int));
+    read_bytes(in, &y, &y + sizeof(int));
+    read_bytes(in, s);
   }
 };
 
@@ -49,8 +53,8 @@ void poc_obj_persistence()
   ifstream file2("test.bin");
   x2.from_stream(file2);
   file2.close();
-
-  cout << x2.x << " " << x2.y << " " << x2.s << endl;
+  
+  cout << x2.x << " " << x2.y << " " << x2.s << endl; // doesn't work
 }
 
 //--------------------------------------------------------------------------------

@@ -2,6 +2,9 @@
 #define __pal_utils_h__
 
 #include <iostream>
+#include <string>
+
+using namespace std;
 
 /**
  * Various utilities used in the C++ code.
@@ -12,20 +15,19 @@
  * Returns the size of a C-style array.
  */
 template <class T, size_t N>
-inline size_t size(T (&)[N]) { return N; }
+  inline size_t size(T (&)[N]) { return N; }
 
 //--------------------------------------------------------------------------------
 /**
  * Write the bytes of a range [begin,end) to a stream.
  */
 template <typename It>
-inline void binary_save(std::ostream& out_stream, It begin, It end)
+inline void write_bytes(ostream& out, It begin, It end)
 {
-  typedef typename std::iterator_traits<It>::value_type value_type;
   size_t size = (size_t) (end - begin);
   if (size > 0) {
     char* ptr = (char*) & *begin;
-    out_stream.write(ptr, (std::streamsize) size*sizeof(value_type));
+    out.write(ptr, (streamsize) size);
   }
 }
 
@@ -34,14 +36,31 @@ inline void binary_save(std::ostream& out_stream, It begin, It end)
  * Read bytes from a stream to a (pre-allocated) range [begin, end).
  */
 template <typename It>
-inline void binary_load(std::istream& in_stream, It begin, It end)
+inline void read_bytes(istream& in, It begin, It end)
 {
-  typedef typename std::iterator_traits<It>::value_type value_type;
   size_t size = (size_t) (end - begin);
   if (size > 0) {
     char* ptr = (char*) & *begin;
-    in_stream.read(ptr, (std::streamsize) size*sizeof(value_type));
+    in.read(ptr, (streamsize) size);
   }
+}
+
+//--------------------------------------------------------------------------------
+inline void write_bytes(ostream& out, const string& str)
+{
+  size_t size = str.size();
+  write_bytes(out, &size, &size + sizeof(size_t));
+  write_bytes(out, str.begin(), str.end());
+}
+
+//--------------------------------------------------------------------------------
+inline void read_bytes(istream& in, string& str)
+{
+  size_t size = 0;
+  read_bytes(in, &size, &size + sizeof(size_t));
+  str.reserve(size);
+  read_bytes(in, &str[0], &str[0] + size);
+  cout << "str=" << str << endl;
 }
 
 //--------------------------------------------------------------------------------
