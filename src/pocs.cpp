@@ -2,6 +2,8 @@
  * File for various studies, experiments and proof-of-concepts.
  */
 
+#include <assert.h>
+
 #include <string>
 #include <iostream>
 #include <fstream>

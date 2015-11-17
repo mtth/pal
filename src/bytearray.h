@@ -1,6 +1,7 @@
 #ifndef __pal_bytearray_h__
 #define __pal_bytearray_h__
 
+#include <string.h>
 #include <iostream>
 
 using namespace std;
