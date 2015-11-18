@@ -4,6 +4,7 @@
       "target_name": "binding",
       "sources": [
         "src/binding.cpp",
+        "src/store.cpp",
         "deps/murmur3/MurmurHash3.cpp"
       ],
       "include_dirs" : [

@@ -22,4 +22,13 @@ suite('binding', function () {
 
   });
 
+  suite('Store', function () {
+
+    test('constructor', function () {
+      var store = new binding.Store('abc');
+      assert.equal(store.get(), 123);
+    });
+
+  });
+
 });

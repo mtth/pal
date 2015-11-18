@@ -1,7 +1,10 @@
 #include <nan.h>
 #include <node.h>
 #include "../deps/murmur3/MurmurHash3.h"
+#include "store.h"
 
+
+namespace pal {
 
 /**
  * Hashing function, equivalent with PalDB's implementation.
@@ -26,7 +29,13 @@ void Hash(const Nan::FunctionCallbackInfo<v8::Value>& info) {
   info.GetReturnValue().Set(hash & 0x7fffffff);
 }
 
-NAN_MODULE_INIT(InitAll) {
+void InitAll(v8::Local<v8::Object> target) {
+
+  Nan::Set(
+    target,
+    Nan::New<v8::String>("Store").ToLocalChecked(),
+    Nan::GetFunction(Store::Init()).ToLocalChecked()
+  );
 
   Nan::Set(
     target,
@@ -37,3 +46,5 @@ NAN_MODULE_INIT(InitAll) {
 }
 
 NODE_MODULE(binding, InitAll)
+
+}
