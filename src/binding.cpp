@@ -1,7 +1,10 @@
 #include <nan.h>
 #include <node.h>
-#include "../deps/murmur3/MurmurHash3.h"
 #include "store.h"
+
+extern "C" {
+  #include "../deps/murmur3/murmur3.h"
+}
 
 
 namespace pal {

@@ -4,21 +4,35 @@ namespace pal {
 
 class StoreWorker : public Nan::AsyncWorker {
 public:
-  StoreWorker(Nan::Callback *callback, int key) :
-    AsyncWorker(callback), key(key) {}
+  StoreWorker(Nan::Callback *callback, pal_db_t *db, char *key, uint32_t len) : AsyncWorker(callback) {
+    _db = db;
+    // TODO: copy key.
+    _key = key;
+  }
+
+  ~StoreWorker() {
+    // TODO: delete key.
+  }
 
   void Execute() {
-    key++;
+    _len = pal_db_get(_db, _key, &_value);
+    if (_len < 0) {
+      SetErrorMessage("not found");
+    }
   }
 
   void HandleOKCallback() {
     Nan::HandleScope scope;
-    v8::Local<v8::Value> argv[] = {Nan::Null(), Nan::New<v8::Number>(key)};
+    Nan::MaybeLocal<v8::Object> buf = Nan::NewBuffer(_value, _len);
+    v8::Local<v8::Value> argv[] = {Nan::Null(), buf.ToLocalChecked()};
     callback->Call(2, argv);
   }
 
 private:
-  int key;
+  pal_db_t *_db;
+  char *_key; // TODO: Create persistent handle to this, to make sure it isn't 
+  char *_value;
+  int32_t _len; // Value length;
 };
 
 Store::Store(const Nan::FunctionCallbackInfo<v8::Value> &info) {
@@ -55,7 +69,7 @@ void Store::New(const Nan::FunctionCallbackInfo<v8::Value> &info) {
 void Store::Get(const Nan::FunctionCallbackInfo<v8::Value> &info) {
   int key = Nan::To<int>(info[0]).FromJust();
   Nan::Callback *callback = new Nan::Callback(info[1].As<v8::Function>());
-  Nan::AsyncQueueWorker(new StoreWorker(callback, key));
+  Nan::AsyncQueueWorker(new StoreWorker(callback, NULL, NULL, 1));
 }
 
 /**

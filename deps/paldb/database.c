@@ -1,5 +1,7 @@
 #include "database.h"
 
+#include <stdlib.h>
+
 struct partition {
   uint32_t keyCount;
   uint32_t slotCount;
@@ -8,19 +10,19 @@ struct partition {
   uint64_t dataOffset;
 };
 
-struct pal_database {
+struct pal_db {
   char *path;
   uint32_t key_count;
   struct partition *partitions;
 };
 
-pal_db_t *paldb_new(char *path) {
+pal_db_t *pal_db_new(char *path) {
   return NULL;
 }
 
-int32_t paldb_get(pal_db_t *db, char *key, char **value) {
+int32_t pal_db_get(pal_db_t *db, void *key, void **value) {
   return 0;
 }
 
-void paldb_del(pal_db_t *db) {
+void pal_db_del(pal_db_t *db) {
 }

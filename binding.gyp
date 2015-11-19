@@ -5,7 +5,7 @@
       "sources": [
         "src/binding.cpp",
         "src/store.cpp",
-        "deps/murmur3/MurmurHash3.cpp",
+        "deps/murmur3/murmur3.c",
         "deps/paldb/database.c"
       ],
       "include_dirs" : [

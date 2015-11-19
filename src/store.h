@@ -3,7 +3,10 @@
 
 #include <nan.h>
 #include <node.h>
-#include "../deps/paldb/database.h"
+
+extern "C" {
+  #include "../deps/paldb/database.h"
+}
 
 namespace pal {
 

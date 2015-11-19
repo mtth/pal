@@ -24,14 +24,6 @@ suite('binding', function () {
 
   suite('Store', function () {
 
-    test('constructor', function (done) {
-      var store = new binding.Store('abc');
-      store.get(122, function (err, val) {
-        assert.equal(val, 123);
-        done();
-      });
-    });
-
   });
 
 });
