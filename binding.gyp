@@ -5,7 +5,8 @@
       "sources": [
         "src/binding.cpp",
         "src/store.cpp",
-        "deps/murmur3/MurmurHash3.cpp"
+        "deps/murmur3/MurmurHash3.cpp",
+        "deps/paldb/database.c"
       ],
       "include_dirs" : [
           "<!(node -e \"require('nan')\")"

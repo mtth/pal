@@ -2,18 +2,38 @@
 
 namespace pal {
 
-Store::Store(const char *path) {
-  if (path == NULL) {
-    Nan::ThrowError("first argument must be a string");
-    return;
+class StoreWorker : public Nan::AsyncWorker {
+public:
+  StoreWorker(Nan::Callback *callback, int key) :
+    AsyncWorker(callback), key(key) {}
+
+  void Execute() {
+    key++;
   }
 
-  keyCount = 1;
-  buffer = new char[10];
+  void HandleOKCallback() {
+    Nan::HandleScope scope;
+    v8::Local<v8::Value> argv[] = {Nan::Null(), Nan::New<v8::Number>(key)};
+    callback->Call(2, argv);
+  }
+
+private:
+  int key;
+};
+
+Store::Store(const Nan::FunctionCallbackInfo<v8::Value> &info) {
+  Nan::Utf8String path(info[0]);
+  db = pal_db_new(*path);
+  if (db == NULL) {
+    Nan::ThrowError("no");
+    return;
+  }
 }
 
 Store::~Store() {
-  delete buffer;
+  if (db) {
+    pal_db_del(db);
+  }
 }
 
 // v8 exposed functions.
@@ -23,8 +43,7 @@ Store::~Store() {
  *
  */
 void Store::New(const Nan::FunctionCallbackInfo<v8::Value> &info) {
-  Nan::Utf8String path(info[0]);
-  Store *obj = new Store((char *) *path);
+  Store *obj = new Store(info);
   obj->Wrap(info.This());
   info.GetReturnValue().Set(info.This());
 }
@@ -34,7 +53,9 @@ void Store::New(const Nan::FunctionCallbackInfo<v8::Value> &info) {
  *
  */
 void Store::Get(const Nan::FunctionCallbackInfo<v8::Value> &info) {
-  info.GetReturnValue().Set(123);
+  int key = Nan::To<int>(info[0]).FromJust();
+  Nan::Callback *callback = new Nan::Callback(info[1].As<v8::Function>());
+  Nan::AsyncQueueWorker(new StoreWorker(callback, key));
 }
 
 /**
