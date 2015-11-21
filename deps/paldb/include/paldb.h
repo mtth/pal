@@ -5,12 +5,13 @@
 
 enum pal_error {
   NO_FILE,
+  STAT_FAIL,
   ALLOC_FAIL,
   MMAP_FAIL,
   INVALID_DATA
 };
 
-enum pal_error PAL_ERRNO;
+extern enum pal_error PAL_ERRNO;
 
 typedef struct pal_reader pal_reader_t;
 

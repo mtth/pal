@@ -5,7 +5,7 @@
 #include <node.h>
 
 extern "C" {
-  #include "../deps/paldb/database.h"
+  #include "../deps/paldb/include/paldb.h"
 }
 
 namespace pal {
@@ -16,7 +16,7 @@ public:
   static v8::Local<v8::FunctionTemplate> Init();
 
 private:
-  pal_db_t *db;
+  pal_reader_t *_reader;
 
   Store(const Nan::FunctionCallbackInfo<v8::Value> &info);
   ~Store();

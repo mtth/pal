@@ -3,6 +3,7 @@
   "version": "0.0.2",
   "scripts": {
     "clean": "rm -rf build node_modules",
+    "debug": "lldb -- node $(npm bin)/_mocha --ui tdd --no-timeouts",
     "test": "mocha --ui tdd --reporter dot"
   },
   "main": "./lib",

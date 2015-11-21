@@ -8,6 +8,8 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+enum pal_error PAL_ERRNO;
+
 // Data structures.
 
 struct pal_partition {
@@ -104,16 +106,14 @@ static char read_int64(FILE *file, int64_t *val) {
  *
  */
 static inline char *unpack_int64(char *addr, int64_t *dst) {
-  int64_t n = 0;
+  *dst = 0;
   int k = 0;
-  char b, h;
+  char b;
   do {
     b = *addr++;
-    h = b & 0x80;
-    n |= (b & 0x7f) << k;
+    *dst |= (b & 0x7f) << k;
     k += 7;
-  } while (h);
-  *dst = n;
+  } while (b & 0x80);
   return addr;
 }
 
@@ -211,8 +211,8 @@ pal_reader_t *pal_init(const char *path) {
     goto file_error;
   }
 
-  pal_reader_t *reader = malloc(sizeof *reader);
-  if (reader == NULL) {
+  pal_reader_t *r = malloc(sizeof *r);
+  if (r == NULL) {
     PAL_ERRNO = ALLOC_FAIL;
     goto reader_error;
   }
@@ -221,10 +221,10 @@ pal_reader_t *pal_init(const char *path) {
   int32_t num_non_empty_partitions;
   if (
     read_version(file) ||
-    read_int64(file, &reader->timestamp) ||
-    read_int32(file, &reader->num_keys) ||
+    read_int64(file, &r->timestamp) ||
+    read_int32(file, &r->num_keys) ||
     read_int32(file, &num_non_empty_partitions) ||
-    read_int32(file, &reader->max_key_size)
+    read_int32(file, &r->max_key_size)
   ) {
     PAL_ERRNO = INVALID_DATA;
     goto metadata_error;
@@ -232,11 +232,8 @@ pal_reader_t *pal_init(const char *path) {
   int64_t offset = ftell(file) - 31;
 
   // Gather all partitions.
-  reader->partitions = calloc(
-    reader->max_key_size + 1,
-    sizeof (struct pal_partition)
-  );
-  if (reader->partitions == NULL) {
+  r->partitions = calloc(r->max_key_size + 1, sizeof (struct pal_partition));
+  if (r->partitions == NULL) {
     PAL_ERRNO = ALLOC_FAIL;
     goto metadata_error;
   }
@@ -246,12 +243,12 @@ pal_reader_t *pal_init(const char *path) {
     if (
       partition == NULL ||
       read_int32(file, &key_size) ||
-      key_size > reader->max_key_size // Sanity check.
+      key_size > r->max_key_size // Sanity check.
     ) {
       PAL_ERRNO = partition == NULL ? ALLOC_FAIL : INVALID_DATA;
       goto partition_error;
     }
-    reader->partitions[key_size] = partition;
+    r->partitions[key_size] = partition;
     read_int32(file, &partition->num_keys);
     read_int32(file, &partition->num_slots);
     read_int32(file, &partition->slot_size);
@@ -267,7 +264,7 @@ pal_reader_t *pal_init(const char *path) {
   read_int32(file, &serializer_size);
   fseek(file, serializer_size, SEEK_CUR);
 
-  // Offsets and sizes.
+  // Build index and data.
   int fd = fileno(file);
   int64_t size = fsize(fd);
   int32_t index_offset;
@@ -277,39 +274,37 @@ pal_reader_t *pal_init(const char *path) {
     read_int32(file, &index_offset) ||
     read_int64(file, &data_offset)
   ) {
-    PAL_ERRNO = INVALID_DATA;
+    PAL_ERRNO = size < 0 ? STAT_FAIL : INVALID_DATA;
     goto partition_error;
   }
-
-  // Create memory maps.
-  reader->index_size = data_offset - index_offset;
-  reader->data_size = size - data_offset;
-  reader->index = unaligned_mmap(reader->index_size, fd, offset + index_offset);
-  reader->data = unaligned_mmap(reader->data_size, fd, offset + data_offset);
-  if (reader->index == MAP_FAILED || reader->data == MAP_FAILED) {
+  r->index_size = data_offset - index_offset;
+  r->data_size = size - data_offset;
+  r->index = unaligned_mmap(r->index_size, fd, offset + index_offset);
+  r->data = unaligned_mmap(r->data_size, fd, offset + data_offset);
+  if (r->index == MAP_FAILED || r->data == MAP_FAILED) {
     PAL_ERRNO = MMAP_FAIL;
     goto mmap_error;
   }
 
   // Populate partition index and data (saving lookups later).
-  for (int i = 0; i <= reader->max_key_size; i++) {
-    struct pal_partition *partition = reader->partitions[i];
+  for (int i = 0; i <= r->max_key_size; i++) {
+    struct pal_partition *partition = r->partitions[i];
     if (partition != NULL) {
-      partition->index = reader->index + partition->index_offset;
-      partition->data = reader->data + partition->data_offset;
+      partition->index = r->index + partition->index_offset;
+      partition->data = r->data + partition->data_offset;
     }
   }
 
   fclose(file);
-  return reader;
+  return r;
 
 mmap_error:
-  munmap_reader(reader);
+  munmap_reader(r);
 partition_error:
-  free_reader_partitions(reader);
-  free(reader->partitions);
+  free_reader_partitions(r);
+  free(r->partitions);
 metadata_error:
-  free(reader);
+  free(r);
 reader_error:
   fclose(file);
 file_error:

@@ -6,7 +6,7 @@
         "src/binding.cpp",
         "src/store.cpp",
         "deps/murmur3/murmur3.c",
-        "deps/paldb/database.c"
+        "deps/paldb/src/reader.c"
       ],
       "include_dirs" : [
           "<!(node -e \"require('nan')\")"

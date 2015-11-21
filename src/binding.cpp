@@ -4,6 +4,7 @@
 
 extern "C" {
   #include "../deps/murmur3/murmur3.h"
+  #include "../deps/paldb/include/paldb.h"
 }
 
 

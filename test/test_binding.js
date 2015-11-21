@@ -24,6 +24,24 @@ suite('binding', function () {
 
   suite('Store', function () {
 
+    var store = new binding.Store('test/dat/numbers.store');
+
+    test('get missing', function (done) {
+      store.get(new Buffer([]), function (err, data) {
+        assert(err);
+        assert.strictEqual(data, undefined);
+        done();
+      });
+    });
+
+    test('get existing', function (done) {
+      store.get(new Buffer([0x67, 0x03, 0x6f, 0x6e, 0x65]), function (err, buf) {
+        assert(!err);
+        assert.deepEqual(buf, new Buffer([0x06]));
+        done();
+      });
+    });
+
   });
 
 });
