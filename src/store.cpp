@@ -40,7 +40,7 @@ Store::Store(const Nan::FunctionCallbackInfo<v8::Value> &info) {
   Nan::Utf8String path(info[0]);
   _reader = pal_init(*path);
   if (_reader == NULL) {
-    Nan::ThrowError("invalid store");
+    Nan::ThrowError("missing or invalid store file");
     return;
   }
 }
