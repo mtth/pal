@@ -207,11 +207,13 @@ static void free_reader_partitions(pal_reader_t *reader) {
 pal_reader_t *pal_init(const char *path) {
   FILE *file = fopen(path, "rb");
   if (file == NULL) {
+    PAL_ERRNO = NO_FILE;
     goto file_error;
   }
 
   pal_reader_t *reader = malloc(sizeof *reader);
   if (reader == NULL) {
+    PAL_ERRNO = ALLOC_FAIL;
     goto reader_error;
   }
 
@@ -224,6 +226,7 @@ pal_reader_t *pal_init(const char *path) {
     read_int32(file, &num_non_empty_partitions) ||
     read_int32(file, &reader->max_key_size)
   ) {
+    PAL_ERRNO = INVALID_DATA;
     goto metadata_error;
   }
   int64_t offset = ftell(file) - 31;
@@ -234,6 +237,7 @@ pal_reader_t *pal_init(const char *path) {
     sizeof (struct pal_partition)
   );
   if (reader->partitions == NULL) {
+    PAL_ERRNO = ALLOC_FAIL;
     goto metadata_error;
   }
   while (num_non_empty_partitions--) {
@@ -244,6 +248,7 @@ pal_reader_t *pal_init(const char *path) {
       read_int32(file, &key_size) ||
       key_size > reader->max_key_size // Sanity check.
     ) {
+      PAL_ERRNO = partition == NULL ? ALLOC_FAIL : INVALID_DATA;
       goto partition_error;
     }
     reader->partitions[key_size] = partition;
@@ -257,11 +262,10 @@ pal_reader_t *pal_init(const char *path) {
     partition->data = NULL;
   }
 
-  // Serializers (not supported).
-  int32_t serializers;
-  if (read_int32(file, &serializers) || serializers) {
-    goto partition_error;
-  }
+  // Skip serializers.
+  int32_t serializer_size;
+  read_int32(file, &serializer_size);
+  fseek(file, serializer_size, SEEK_CUR);
 
   // Offsets and sizes.
   int fd = fileno(file);
@@ -273,6 +277,7 @@ pal_reader_t *pal_init(const char *path) {
     read_int32(file, &index_offset) ||
     read_int64(file, &data_offset)
   ) {
+    PAL_ERRNO = INVALID_DATA;
     goto partition_error;
   }
 
@@ -282,6 +287,7 @@ pal_reader_t *pal_init(const char *path) {
   reader->index = unaligned_mmap(reader->index_size, fd, offset + index_offset);
   reader->data = unaligned_mmap(reader->data_size, fd, offset + data_offset);
   if (reader->index == MAP_FAILED || reader->data == MAP_FAILED) {
+    PAL_ERRNO = MMAP_FAIL;
     goto mmap_error;
   }
 

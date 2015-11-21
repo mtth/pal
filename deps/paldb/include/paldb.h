@@ -5,18 +5,22 @@
 
 enum pal_error {
   NO_FILE,
-  NO_ALLOC,
-  SERIALIZER_ERR // TODO: Skip rather than err out.
+  ALLOC_FAIL,
+  MMAP_FAIL,
+  INVALID_DATA
 };
+
+enum pal_error PAL_ERRNO;
 
 typedef struct pal_reader pal_reader_t;
 
 /**
  * Create a store reader.
  *
- * @param path Path to binary file.
+ * @param path Path to binary store file.
  *
- * Returns NULL if the path doesn't exist or is an invalid file.
+ * Returns NULL if the path doesn't exist or is an invalid file. The PAL_ERRNO
+ * global variable can be checked for details on the cause of the error.
  *
  */
 pal_reader_t *pal_init(const char *path);
