@@ -168,7 +168,8 @@ static void munmap_reader(pal_reader_t *reader) {
  *
  */
 static void free_reader_partitions(pal_reader_t *reader) {
-  for (int i = 0; i <= reader->max_key_size; i++) {
+  int i;
+  for (i = 0; i <= reader->max_key_size; i++) {
     struct pal_partition *partition = reader->partitions[i];
     if (partition != NULL) {
       free(partition);
@@ -287,7 +288,8 @@ pal_reader_t *pal_init(const char *path) {
   }
 
   // Populate partition index and data (saving lookups later).
-  for (int i = 0; i <= r->max_key_size; i++) {
+  int i;
+  for (i = 0; i <= r->max_key_size; i++) {
     struct pal_partition *partition = r->partitions[i];
     if (partition != NULL) {
       partition->index = r->index + partition->index_offset;
