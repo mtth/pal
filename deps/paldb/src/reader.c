@@ -34,6 +34,13 @@ struct pal_reader {
   char *data;
 };
 
+struct pal_iterator {
+  pal_reader_t *reader;
+  int32_t key_size;
+  int32_t num_keys; // Current count of keys for this size.
+  int32_t index_offset;
+};
+
 // Helpers.
 
 /**
@@ -317,41 +324,82 @@ int64_t pal_timestamp(pal_reader_t *reader) { return reader->timestamp; }
 
 int32_t pal_num_keys(pal_reader_t *reader) { return reader->num_keys; }
 
-int32_t pal_get(pal_reader_t *reader, char *key, int32_t len, char **value) {
-  if (len > reader->max_key_size) {
-    return -1;
+char pal_get(pal_reader_t *reader, char *key, int32_t key_len, char **value, int64_t *value_len) {
+  if (key_len > reader->max_key_size) {
+    return 0;
   }
 
-  struct pal_partition *partition = reader->partitions[len];
+  struct pal_partition *partition = reader->partitions[key_len];
   if (partition == NULL) {
-    return -1;
+    return 0;
   }
 
   int32_t hash;
-  MurmurHash3_x86_32(key, len, 42, &hash);
+  MurmurHash3_x86_32(key, key_len, 42, &hash);
   int32_t index_offset = partition->slot_size * (hash % partition->num_slots);
 
   int32_t attempts = partition->num_slots;
   while (attempts--) {
     // Single step linear probing.
     char *slot = partition->index + index_offset;
-    if (!memcmp(slot, key, len)) {
+    if (!memcmp(slot, key, key_len)) {
       int64_t data_offset;
-      unpack_int64(slot + len, &data_offset);
+      unpack_int64(slot + key_len, &data_offset);
       if (data_offset) {
-        int64_t data_size;
-        *value = unpack_int64(partition->data + data_offset, &data_size);
-        return (int32_t) data_size;
+        *value = unpack_int64(partition->data + data_offset, value_len);
       } else {
-        return 0;
+        *value_len = 0;
       }
+      return 1;
     }
     index_offset += partition->slot_size;
     if (index_offset == partition->index_size) {
       index_offset = 0;
     }
   }
-  return -1;
+  return 0;
+}
+
+pal_iterator_t *pal_iterator(pal_reader_t *reader) {
+  pal_iterator_t *iterator = malloc(sizeof *iterator);
+  if (iterator == NULL) {
+    return NULL;
+  }
+  iterator->reader = reader;
+  iterator->key_size = 0;
+  iterator->num_keys = 0;
+  iterator->index_offset = 0;
+  return iterator;
+}
+
+char pal_next(pal_iterator_t *iterator, char **key, int32_t *key_len, char **value, int64_t *value_len) {
+  pal_reader_t *reader = iterator->reader;
+  struct pal_partition *partition;
+  do {
+    partition = reader->partitions[iterator->key_size];
+  } while (partition == NULL && (++iterator->key_size <= reader->max_key_size));
+  if (partition == NULL) {
+    return 0;
+  }
+
+  char *slot;
+  int64_t data_offset;
+  do {
+    slot = partition->index + iterator->index_offset;
+    iterator->index_offset += partition->slot_size;
+    unpack_int64(slot + iterator->key_size, &data_offset);
+  } while (!data_offset);
+
+  *key = slot;
+  *key_len = iterator->key_size;
+  *value = unpack_int64(partition->data + data_offset, value_len);
+
+  if (++iterator->num_keys == partition->num_keys) {
+    iterator->key_size++;
+    iterator->num_keys = 0;
+    iterator->index_offset = 0;
+  }
+  return 1;
 }
 
 void pal_destroy(pal_reader_t *reader) {

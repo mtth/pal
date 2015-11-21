@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 
+// Error codes (to help disambiguate instantiation errors).
 enum pal_error {
   NO_FILE,
   STAT_FAIL,
@@ -11,9 +12,10 @@ enum pal_error {
   INVALID_DATA
 };
 
-extern enum pal_error PAL_ERRNO;
-
 typedef struct pal_reader pal_reader_t;
+typedef struct pal_iterator pal_iterator_t;
+
+extern enum pal_error PAL_ERRNO;
 
 /**
  * Create a store reader.
@@ -43,13 +45,29 @@ int32_t pal_num_keys(pal_reader_t *reader);
  *
  * @param reader An active reader.
  * @param key The key to look up.
- * @param len The length of the key.
+ * @param key_len The length of the key.
  * @param value Where to store the pointer to the returned value.
+ * @param value_len Value length.
  *
- * Returns the number of bytes returned, -1 if the key doesn't exist.
+ * Returns 1 if found, 0 otherwise.
  *
  */
-int32_t pal_get(pal_reader_t *reader, char *key, int32_t len, char **value);
+char pal_get(pal_reader_t *reader, char *key, int32_t key_len, char **value, int64_t *value_len);
+
+/**
+ * Create iterator of keys and values.
+ *
+ */
+pal_iterator_t *pal_iterator(pal_reader_t *reader);
+
+/**
+ * Get next key and value from iterator.
+ *
+ * Returns 1 if value (and populates the arguments appropriately), 0 if
+ * nothing.
+ *
+ */
+char pal_next(pal_iterator_t *iterator, char **key, int32_t *key_len, char **value, int64_t *value_len);
 
 /**
  * Close a reader, freeing all associated memory.

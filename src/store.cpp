@@ -4,11 +4,11 @@ namespace pal {
 
 class StoreWorker : public Nan::AsyncWorker {
 public:
-  StoreWorker(Nan::Callback *callback, pal_reader_t *reader, char *key, int32_t len) : AsyncWorker(callback) {
+  StoreWorker(Nan::Callback *callback, pal_reader_t *reader, char *key, int32_t keySize) : AsyncWorker(callback) {
     _reader = reader;
-    _len = len;
-    _key = new char[len];
-    std::memcpy(_key, key, len);
+    _keySize = keySize;
+    _key = new char[keySize];
+    std::memcpy(_key, key, keySize);
   }
 
   ~StoreWorker() {
@@ -16,15 +16,14 @@ public:
   }
 
   void Execute() {
-    _len = pal_get(_reader, _key, _len, &_value);
-    if (_len < 0) {
+    if (!pal_get(_reader, _key, _keySize, &_value, &_valueSize)) {
       SetErrorMessage("key not found");
     }
   }
 
   void HandleOKCallback() {
     Nan::HandleScope scope;
-    Nan::MaybeLocal<v8::Object> buf = Nan::CopyBuffer(_value, _len);
+    Nan::MaybeLocal<v8::Object> buf = Nan::CopyBuffer(_value, _valueSize);
     v8::Local<v8::Value> argv[] = {Nan::Null(), buf.ToLocalChecked()};
     callback->Call(2, argv);
   }
@@ -32,8 +31,9 @@ public:
 private:
   pal_reader_t *_reader;
   char *_key;
+  int32_t _keySize;
   char *_value;
-  int32_t _len; // Value length;
+  int64_t _valueSize;
 };
 
 Store::Store(const Nan::FunctionCallbackInfo<v8::Value> &info) {
@@ -92,10 +92,10 @@ void Store::Get(const Nan::FunctionCallbackInfo<v8::Value> &info) {
 
   Store* store = ObjectWrap::Unwrap<Store>(info.This());
   pal_reader_t *reader = store->_reader;
-  size_t size = node::Buffer::Length(obj);
-  char *data = node::Buffer::Data(obj);
+  size_t keySize = node::Buffer::Length(obj);
+  char *key = node::Buffer::Data(obj);
   Nan::Callback *callback = new Nan::Callback(info[1].As<v8::Function>());
-  Nan::AsyncQueueWorker(new StoreWorker(callback, reader, data, size));
+  Nan::AsyncQueueWorker(new StoreWorker(callback, reader, key, keySize));
 }
 
 /**

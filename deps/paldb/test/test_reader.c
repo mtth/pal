@@ -3,7 +3,7 @@
 
 void show_bytes(char *addr, int len) {
   while (len--) {
-    printf("%x", *addr++);
+    printf("%x ", *addr++);
   }
   printf("\n");
 }
@@ -19,17 +19,26 @@ int main() {
   printf("total keys: %d\n", pal_num_keys(reader));
 
   char *v;
+  int64_t vl;
   char *c1 = "g\x03one";
   char *c2 = "g\x03two";
   char *c3 = "g\x05three";
   char *c4 = "g\x04four";
-  printf("get one: %d\n", pal_get(reader, c1, 5, &v));
-  show_bytes(v, 1);
-  printf("get two: %d\n", pal_get(reader, c2, 5, &v));
-  show_bytes(v, 1);
-  printf("get three: %d\n", pal_get(reader, c3, 7, &v));
-  show_bytes(v, 1);
-  printf("get four: %d\n", pal_get(reader, c4, 6, &v));
+  printf("get one: %d\n", pal_get(reader, c1, 5, &v, &vl));
+  show_bytes(v, vl);
+  printf("get two: %d\n", pal_get(reader, c2, 5, &v, &vl));
+  show_bytes(v, vl);
+  printf("get three: %d\n", pal_get(reader, c3, 7, &v, &vl));
+  show_bytes(v, vl);
+  printf("get four: %d\n", pal_get(reader, c4, 6, &v, &vl));
+
+  pal_iterator_t *iter = pal_iterator(reader);
+  char *k;
+  int32_t kl;
+  while (pal_next(iter, &k, &kl, &v, &vl)) {
+    show_bytes(k, kl);
+    show_bytes(v, vl);
+  }
 
   pal_destroy(reader);
 }
