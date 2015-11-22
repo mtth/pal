@@ -7,6 +7,14 @@
     "test": "mocha --ui tdd --reporter dot"
   },
   "main": "./lib",
+  "files": [
+    "lib",
+    "deps/murmur3/murmur3.c",
+    "deps/murmur3/murmur3.h",
+    "deps/murmur3/README.md",
+    "deps/paldb/include",
+    "deps/paldb/src/reader.c"
+  ],
   "dependencies": {
     "nan": "^2.1.0"
   },
