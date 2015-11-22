@@ -62,6 +62,8 @@ char pal_get(pal_reader_t *reader, char *key, int32_t key_len, char **value, int
 /**
  * Create iterator of keys and values.
  *
+ * The reader mustn't be destroyed during the lifetime of its iterators.
+ *
  */
 void pal_iterator_reset(pal_iterator_t *iterator, pal_reader_t *reader);
 
