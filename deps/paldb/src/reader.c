@@ -360,44 +360,47 @@ char pal_get(pal_reader_t *reader, char *key, int32_t key_len, char **value, int
   return 0;
 }
 
-pal_iterator_t *pal_iterator(pal_reader_t *reader) {
-  pal_iterator_t *iterator = malloc(sizeof *iterator);
-  if (iterator == NULL) {
-    return NULL;
-  }
-  iterator->reader = reader;
-  iterator->key_size = 0;
-  iterator->num_keys = 0;
-  iterator->index_offset = 0;
-  return iterator;
+void pal_iterator_reset(pal_iterator_t *iterator, pal_reader_t *reader) {
+  struct pal_iterator *iter = (struct pal_iterator *) iterator;
+  iter->reader = reader;
+  iter->key_size = 0;
+  iter->num_keys = 0;
+  iter->index_offset = 0;
 }
 
-char pal_next(pal_iterator_t *iterator, char **key, int32_t *key_len, char **value, int64_t *value_len) {
-  pal_reader_t *reader = iterator->reader;
-  struct pal_partition *partition;
-  do {
-    partition = reader->partitions[iterator->key_size];
-  } while (partition == NULL && (++iterator->key_size <= reader->max_key_size));
+char pal_iterator_next(pal_iterator_t *iterator, char **key, int32_t *key_len, char **value, int64_t *value_len) {
+  struct pal_iterator *iter = (struct pal_iterator *) iterator;
+  pal_reader_t *reader = iter->reader;
+  struct pal_partition *partition = NULL;
+  while (
+    iter->key_size <= reader->max_key_size &&
+    (partition = reader->partitions[iter->key_size]) == NULL
+  ) {
+    iter->key_size++;
+  }
+
   if (partition == NULL) {
+    // End of iterator.
     return 0;
   }
 
   char *slot;
   int64_t data_offset;
   do {
-    slot = partition->index + iterator->index_offset;
-    iterator->index_offset += partition->slot_size;
-    unpack_int64(slot + iterator->key_size, &data_offset);
+    // A non-null partition has at least one key.
+    slot = partition->index + iter->index_offset;
+    iter->index_offset += partition->slot_size;
+    unpack_int64(slot + iter->key_size, &data_offset);
   } while (!data_offset);
 
   *key = slot;
-  *key_len = iterator->key_size;
+  *key_len = iter->key_size;
   *value = unpack_int64(partition->data + data_offset, value_len);
 
-  if (++iterator->num_keys == partition->num_keys) {
-    iterator->key_size++;
-    iterator->num_keys = 0;
-    iterator->index_offset = 0;
+  if (++iter->num_keys == partition->num_keys) {
+    iter->key_size++;
+    iter->num_keys = 0;
+    iter->index_offset = 0;
   }
   return 1;
 }

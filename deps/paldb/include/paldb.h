@@ -3,6 +3,13 @@
 
 #include <stdint.h>
 
+typedef struct pal_reader pal_reader_t;
+
+// Opaque iterator (with a bit of padding).
+typedef struct {
+  char data[48];
+} pal_iterator_t;
+
 // Error codes (to help disambiguate instantiation errors).
 enum pal_error {
   NO_FILE,
@@ -12,9 +19,7 @@ enum pal_error {
   INVALID_DATA
 };
 
-typedef struct pal_reader pal_reader_t;
-typedef struct pal_iterator pal_iterator_t;
-
+// Exposed error global.
 extern enum pal_error PAL_ERRNO;
 
 /**
@@ -58,7 +63,7 @@ char pal_get(pal_reader_t *reader, char *key, int32_t key_len, char **value, int
  * Create iterator of keys and values.
  *
  */
-pal_iterator_t *pal_iterator(pal_reader_t *reader);
+void pal_iterator_reset(pal_iterator_t *iterator, pal_reader_t *reader);
 
 /**
  * Get next key and value from iterator.
@@ -67,7 +72,7 @@ pal_iterator_t *pal_iterator(pal_reader_t *reader);
  * nothing.
  *
  */
-char pal_next(pal_iterator_t *iterator, char **key, int32_t *key_len, char **value, int64_t *value_len);
+char pal_iterator_next(pal_iterator_t *iterator, char **key, int32_t *key_len, char **value, int64_t *value_len);
 
 /**
  * Close a reader, freeing all associated memory.
