@@ -10,9 +10,14 @@ extern "C" {
 
 namespace pal {
 
+/**
+ * Store reader.
+ *
+ */
 class Store : public Nan::ObjectWrap {
 public:
   static v8::Local<v8::FunctionTemplate> Init();
+
   friend class Iterator;
 
 private:

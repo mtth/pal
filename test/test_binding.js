@@ -52,28 +52,34 @@ suite('binding', function () {
 
     test('stream all', function (done) {
       var entries = [];
-      store.createReadStream()
-        .on('data', function (entry) { entries.push(entry); })
-        .on('end', function () {
-          assert.deepEqual(
-            entries,
-            [
-              {
-                key: new Buffer([0x67, 0x03, 0x6f, 0x6e, 0x65]),
-                value: new Buffer([0x06])
-              },
-              {
-                key: new Buffer([0x67, 0x03, 0x74, 0x77, 0x6f]),
-                value: new Buffer([0x07])
-              },
-              {
-                key: new Buffer([0x67, 0x05, 0x74, 0x68, 0x72, 0x65, 0x65]),
-                value: new Buffer([0x08])
-              },
-            ]
-          );
-          done();
+      var iterator = new binding.Iterator(store);
+      (function loop() {
+        iterator.next(function (err, key, value) {
+          if (!key) {
+            assert.deepEqual(
+              entries,
+              [
+                {
+                  key: new Buffer([0x67, 0x03, 0x6f, 0x6e, 0x65]),
+                  value: new Buffer([0x06])
+                },
+                {
+                  key: new Buffer([0x67, 0x03, 0x74, 0x77, 0x6f]),
+                  value: new Buffer([0x07])
+                },
+                {
+                  key: new Buffer([0x67, 0x05, 0x74, 0x68, 0x72, 0x65, 0x65]),
+                  value: new Buffer([0x08])
+                },
+              ]
+            );
+            done();
+          } else {
+            entries.push({key: key, value: value});
+            loop();
+          }
         });
+      })();
     });
 
   });
