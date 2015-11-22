@@ -1,6 +1,6 @@
 {
   "name": "pal",
-  "version": "0.0.2",
+  "version": "0.1.0",
   "scripts": {
     "clean": "rm -rf build node_modules",
     "debug": "lldb -- node $(npm bin)/_mocha --ui tdd --no-timeouts",
