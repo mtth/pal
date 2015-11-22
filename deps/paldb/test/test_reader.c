@@ -1,6 +1,7 @@
 #include "../include/paldb.h"
 #include <stdio.h>
 #include <stdlib.h>
+#include <time.h>
 
 void show_bytes(char *addr, int len) {
   while (len--) {
@@ -15,7 +16,8 @@ struct key {
 };
 
 int main() {
-  pal_reader_t *reader = pal_init("paldb100-10.store");
+  srand(time(NULL));
+  pal_reader_t *reader = pal_init("paldb1000000-10.store");
   if (!reader) {
     printf("invalid reader\n");
     return 1;
@@ -41,12 +43,11 @@ int main() {
     key.data = k;
   }
 
-  int j = 10000000;
+  int j = 100000000;
   while (j--) {
-    for (i = 0; i < num_keys; i++) {
-      struct key key = keys[i];
-      pal_get(reader, key.data, key.size, &v, &vl);
-    }
+    int i = rand() % num_keys;
+    struct key key = keys[i];
+    pal_get(reader, key.data, key.size, &v, &vl);
   }
 
   pal_destroy(reader);

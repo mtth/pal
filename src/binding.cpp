@@ -1,5 +1,6 @@
 #include <nan.h>
 #include <node.h>
+#include "iterator.h"
 #include "store.h"
 
 extern "C" {
@@ -39,6 +40,12 @@ void InitAll(v8::Local<v8::Object> target) {
     target,
     Nan::New<v8::String>("Store").ToLocalChecked(),
     Nan::GetFunction(Store::Init()).ToLocalChecked()
+  );
+
+  Nan::Set(
+    target,
+    Nan::New<v8::String>("Iterator").ToLocalChecked(),
+    Nan::GetFunction(Iterator::Init()).ToLocalChecked()
   );
 
   Nan::Set(

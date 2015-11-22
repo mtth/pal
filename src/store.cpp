@@ -2,6 +2,8 @@
 
 namespace pal {
 
+// Async helpers.
+
 class StoreWorker : public Nan::AsyncWorker {
 public:
   StoreWorker(Nan::Callback *callback, pal_reader_t *reader, char *key, int32_t keySize) : AsyncWorker(callback) {
@@ -36,9 +38,8 @@ private:
   int64_t _valueSize;
 };
 
-Store::Store(const Nan::FunctionCallbackInfo<v8::Value> &info) {
-  Nan::Utf8String path(info[0]);
-  _reader = pal_init(*path);
+Store::Store(char *path) {
+  _reader = pal_init(path);
   if (_reader == NULL) {
     Nan::ThrowError("missing or invalid store file");
     return;
@@ -58,8 +59,14 @@ Store::~Store() {
  *
  */
 void Store::New(const Nan::FunctionCallbackInfo<v8::Value> &info) {
-  Store *obj = new Store(info);
-  obj->Wrap(info.This());
+  if (info.Length() != 1 || !info[0]->IsString()) {
+    Nan::ThrowError("invalid arguments");
+    return;
+  }
+
+  Nan::Utf8String path(info[0]);
+  Store *store = new Store(*path);
+  store->Wrap(info.This());
   info.GetReturnValue().Set(info.This());
 }
 
@@ -90,7 +97,7 @@ void Store::Get(const Nan::FunctionCallbackInfo<v8::Value> &info) {
     return;
   }
 
-  Store* store = ObjectWrap::Unwrap<Store>(info.This());
+  Store *store = ObjectWrap::Unwrap<Store>(info.This());
   pal_reader_t *reader = store->_reader;
   size_t keySize = node::Buffer::Length(obj);
   char *key = node::Buffer::Data(obj);

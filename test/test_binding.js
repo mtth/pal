@@ -5,6 +5,8 @@
 var binding = require('../build/Release/binding'),
     assert = require('assert');
 
+var PATH = 'test/dat/numbers.store';
+
 suite('binding', function () {
 
   suite('murmurHash', function () {
@@ -24,7 +26,7 @@ suite('binding', function () {
 
   suite('Store', function () {
 
-    var store = new binding.Store('test/dat/numbers.store');
+    var store = new binding.Store(PATH);
 
     test('get missing', function (done) {
       store.get(new Buffer([]), function (err, data) {
@@ -40,6 +42,38 @@ suite('binding', function () {
         assert.deepEqual(buf, new Buffer([0x06]));
         done();
       });
+    });
+
+  });
+
+  suite('Iterator', function () {
+
+    var store = new binding.Store(PATH);
+
+    test('stream all', function (done) {
+      var entries = [];
+      store.createReadStream()
+        .on('data', function (entry) { entries.push(entry); })
+        .on('end', function () {
+          assert.deepEqual(
+            entries,
+            [
+              {
+                key: new Buffer([0x67, 0x03, 0x6f, 0x6e, 0x65]),
+                value: new Buffer([0x06])
+              },
+              {
+                key: new Buffer([0x67, 0x03, 0x74, 0x77, 0x6f]),
+                value: new Buffer([0x07])
+              },
+              {
+                key: new Buffer([0x67, 0x05, 0x74, 0x68, 0x72, 0x65, 0x65]),
+                value: new Buffer([0x08])
+              },
+            ]
+          );
+          done();
+        });
     });
 
   });

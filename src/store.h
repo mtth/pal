@@ -11,14 +11,14 @@ extern "C" {
 namespace pal {
 
 class Store : public Nan::ObjectWrap {
-
 public:
   static v8::Local<v8::FunctionTemplate> Init();
+  friend class Iterator;
 
 private:
   pal_reader_t *_reader;
 
-  Store(const Nan::FunctionCallbackInfo<v8::Value> &info);
+  Store(char *path);
   ~Store();
 
   static void New(const Nan::FunctionCallbackInfo<v8::Value> &info);
