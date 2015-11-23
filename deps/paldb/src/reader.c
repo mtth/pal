@@ -329,31 +329,29 @@ char pal_get(pal_reader_t *reader, char *key, int32_t key_len, char **value, int
     return 0;
   }
 
-  struct pal_partition *partition = reader->partitions[key_len];
-  if (partition == NULL) {
+  struct pal_partition *p = reader->partitions[key_len];
+  if (p == NULL) {
     return 0;
   }
 
   int32_t hash;
   MurmurHash3_x86_32(key, key_len, 42, &hash);
-  int32_t index_offset = partition->slot_size * (hash % partition->num_slots);
+  int32_t index_offset = p->slot_size * ((hash & 0x7fffffff) % p->num_slots);
 
-  int32_t attempts = partition->num_slots;
+  int32_t attempts = p->num_slots;
   while (attempts--) {
     // Single step linear probing.
-    char *slot = partition->index + index_offset;
-    if (!memcmp(slot, key, key_len)) {
-      int64_t data_offset;
-      unpack_int64(slot + key_len, &data_offset);
-      if (data_offset) {
-        *value = unpack_int64(partition->data + data_offset, value_len);
-      } else {
-        *value_len = 0;
-      }
+    char *slot = p->index + index_offset;
+    int64_t data_offset;
+    unpack_int64(slot + key_len, &data_offset);
+    if (!data_offset) {
+      return 0;
+    } else if (!memcmp(slot, key, key_len)) {
+      *value = unpack_int64(p->data + data_offset, value_len);
       return 1;
     }
-    index_offset += partition->slot_size;
-    if (index_offset == partition->index_size) {
+    index_offset += p->slot_size;
+    if (index_offset == p->index_size) {
       index_offset = 0;
     }
   }
