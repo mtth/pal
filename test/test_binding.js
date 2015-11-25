@@ -28,20 +28,15 @@ suite('binding', function () {
 
     var store = new binding.Store(PATH);
 
-    test('get missing', function (done) {
-      store.get(new Buffer([]), function (err, data) {
-        assert(err);
-        assert.strictEqual(data, undefined);
-        done();
-      });
+    test('read missing', function () {
+      assert(!~store.read(new Buffer([0]), new Buffer([])));
     });
 
-    test('get existing', function (done) {
-      store.get(new Buffer([0x67, 0x03, 0x6f, 0x6e, 0x65]), function (err, buf) {
-        assert(!err);
-        assert.deepEqual(buf, new Buffer([0x06]));
-        done();
-      });
+    test('read existing', function () {
+      var key = new Buffer([0x67, 0x03, 0x6f, 0x6e, 0x65]);
+      var buf = new Buffer(1);
+      assert.equal(store.read(key, buf), 1);
+      assert.deepEqual(buf, new Buffer([0x06]));
     });
 
   });

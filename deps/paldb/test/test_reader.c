@@ -17,7 +17,7 @@ struct key {
 
 int main() {
   srand(time(NULL));
-  pal_reader_t *reader = pal_init("../../etc/benchmarks/dat/paldb10000-10.store");
+  pal_reader_t *reader = pal_init("../../etc/benchmarks/dat/paldb1000000-10.store");
   if (!reader) {
     printf("invalid reader\n");
     return 1;
@@ -46,12 +46,15 @@ int main() {
 
   int j = 10000000;
   int found = 0;
+  clock_t begin = clock();
   while (j--) {
-    int i = rand() % num_keys;
+    int i = rand() % 1000;
     struct key *key = keys + i;
     found += pal_get(reader, key->data, key->size, &v, &vl);
   }
-  printf("found: %d\n", found);
+  clock_t end = clock();
+  double time_spent = (double) (end - begin) / CLOCKS_PER_SEC;
+  printf("%f\n", found / time_spent);
 
   pal_destroy(reader);
 }

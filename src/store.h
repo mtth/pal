@@ -27,7 +27,7 @@ private:
   ~Store();
 
   static void New(const Nan::FunctionCallbackInfo<v8::Value> &info);
-  static void Get(const Nan::FunctionCallbackInfo<v8::Value> &info);
+  static void Read(const Nan::FunctionCallbackInfo<v8::Value> &info);
 };
 
 }

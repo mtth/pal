@@ -345,8 +345,11 @@ char pal_get(pal_reader_t *reader, char *key, int32_t key_len, char **value, int
     int64_t data_offset;
     unpack_int64(slot + key_len, &data_offset);
     if (!data_offset) {
+      // Offset 0 is reserved, the key is missing.
       return 0;
-    } else if (!memcmp(slot, key, key_len)) {
+    }
+    if (!memcmp(slot, key, key_len)) {
+      // Found a matching key.
       *value = unpack_int64(p->data + data_offset, value_len);
       return 1;
     }
