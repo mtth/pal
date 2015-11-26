@@ -5,9 +5,22 @@ namespace pal {
 Store::Store(char *path) {
   _reader = pal_init(path);
   if (_reader == NULL) {
-    // TODO: Propagate error code.
-    Nan::ThrowError("missing or invalid store file");
-    return;
+    switch (PAL_ERRNO) {
+      case NO_FILE:
+        Nan::ThrowError("no such file");
+        break;
+      case STAT_FAIL:
+        Nan::ThrowError("unable to get file size");
+        break;
+      case ALLOC_FAIL:
+        Nan::ThrowError("memory allocation failure");
+        break;
+      case MMAP_FAIL:
+        Nan::ThrowError("memory mapping failure");
+        break;
+      default:
+        Nan::ThrowError("invalid file");
+    }
   }
 }
 
