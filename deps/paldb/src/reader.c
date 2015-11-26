@@ -1,6 +1,7 @@
 #include "../include/paldb.h"
 #include "../../murmur3/murmur3.h"
 #include <arpa/inet.h>
+#include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -28,8 +29,10 @@ struct pal_reader {
   int32_t num_keys;
   int32_t max_key_size;
   struct pal_partition **partitions; // Array indexed by key length.
+  int32_t metadata_size;
   int64_t index_size;
   int64_t data_size;
+  char *metadata;
   char *index;
   char *data;
 };
@@ -137,35 +140,38 @@ static char *unaligned_mmap(size_t len, int fd, off_t offset) {
   len = len / ps * ps + 2 * ps; // Add padding appropriately.
   char *addr = mmap(NULL, len, PROT_READ, MAP_PRIVATE, fd, aligned_offset);
   if (addr == MAP_FAILED) {
-    return addr;
+    return MAP_FAILED;
   }
   return addr + (offset % ps);
 }
 
 /**
- * Page align an address.
+ * Corresponding unaligned version of `munmap`.
  *
  */
-static char *align_addr(char *addr) {
+static int unaligned_munmap(char *addr, int64_t size) {
   int ps = getpagesize();
   int offset = (uintptr_t) addr % ps;
-  return offset ? addr - offset : addr;
+  char *aligned_addr = offset ? addr - offset : addr;
+  int64_t aligned_size = size / ps * ps + 2 * ps;
+  return munmap(aligned_addr, aligned_size);
 }
 
 /**
  * Release mapped pages.
  *
- * Note length handling (consistent with that in `unaligned_mmap`).
- *
  */
 static void munmap_reader(pal_reader_t *reader) {
-  int ps = getpagesize();
+  if (reader->metadata != MAP_FAILED) {
+    assert(!unaligned_munmap(reader->metadata, reader->metadata_size));
+    reader->metadata = MAP_FAILED;
+  }
   if (reader->index != MAP_FAILED) {
-    munmap(align_addr(reader->index), reader->index_size / ps * ps + 2 * ps);
+    assert(!unaligned_munmap(reader->index, reader->index_size));
     reader->index = MAP_FAILED;
   }
   if (reader->data != MAP_FAILED) {
-    munmap(align_addr(reader->data), reader->data_size / ps * ps + 2 * ps);
+    assert(!unaligned_munmap(reader->data, reader->data_size));
     reader->data = MAP_FAILED;
   }
 }
@@ -207,7 +213,7 @@ static void free_reader_partitions(pal_reader_t *reader) {
  * 8        Partition data offset.
  * // End of partition repeat.
  * 4        Length of serializer bytes.
- * varies   Serializers.
+ * varies   Serializers. (Used as metadata here.)
  * 4        Index offset.
  * 8        Data offset.
  *
@@ -251,34 +257,33 @@ pal_reader_t *pal_init(const char *path) {
     if (
       partition == NULL ||
       read_int32(file, &key_size) ||
-      key_size > r->max_key_size // Sanity check.
+      key_size > r->max_key_size || // Sanity check.
+      read_int32(file, &partition->num_keys) ||
+      read_int32(file, &partition->num_slots) ||
+      read_int32(file, &partition->slot_size) ||
+      read_int32(file, &partition->index_offset) ||
+      read_int64(file, &partition->data_offset)
     ) {
       PAL_ERRNO = partition == NULL ? ALLOC_FAIL : INVALID_DATA;
       goto partition_error;
     }
     r->partitions[key_size] = partition;
-    read_int32(file, &partition->num_keys);
-    read_int32(file, &partition->num_slots);
-    read_int32(file, &partition->slot_size);
-    read_int32(file, &partition->index_offset);
-    read_int64(file, &partition->data_offset);
     partition->index_size = partition->slot_size * partition->num_slots;
     partition->index = NULL;
     partition->data = NULL;
   }
 
-  // Skip serializers.
-  int32_t serializer_size;
-  read_int32(file, &serializer_size);
-  fseek(file, serializer_size, SEEK_CUR);
-
-  // Build index and data.
+  // Build metadata (overloading serializers), index, and data.
   int fd = fileno(file);
   int64_t size = fsize(fd);
+  int32_t metadata_offset = ftell(file);
   int32_t index_offset;
   int64_t data_offset;
   if (
     size < 0 ||
+    metadata_offset < 0 ||
+    read_int32(file, &r->metadata_size) ||
+    fseek(file, r->metadata_size, SEEK_CUR) || // Skip metadata.
     read_int32(file, &index_offset) ||
     read_int64(file, &data_offset)
   ) {
@@ -287,9 +292,14 @@ pal_reader_t *pal_init(const char *path) {
   }
   r->index_size = data_offset - index_offset;
   r->data_size = size - data_offset;
+  r->metadata = unaligned_mmap(r->metadata_size, fd, metadata_offset + 4);
   r->index = unaligned_mmap(r->index_size, fd, offset + index_offset);
   r->data = unaligned_mmap(r->data_size, fd, offset + data_offset);
-  if (r->index == MAP_FAILED || r->data == MAP_FAILED) {
+  if (
+    r->metadata == MAP_FAILED ||
+    r->index == MAP_FAILED ||
+    r->data == MAP_FAILED
+  ) {
     PAL_ERRNO = MMAP_FAIL;
     goto mmap_error;
   }
@@ -323,6 +333,11 @@ file_error:
 int64_t pal_timestamp(pal_reader_t *reader) { return reader->timestamp; }
 
 int32_t pal_num_keys(pal_reader_t *reader) { return reader->num_keys; }
+
+void pal_metadata(pal_reader_t *reader, char **metadata, int32_t *metadata_len) {
+  *metadata = reader->metadata;
+  *metadata_len = reader->metadata_size;
+}
 
 char pal_get(pal_reader_t *reader, char *key, int32_t key_len, char **value, int64_t *value_len) {
   if (key_len > reader->max_key_size) {

@@ -46,6 +46,12 @@ int64_t pal_timestamp(pal_reader_t *reader);
 int32_t pal_num_keys(pal_reader_t *reader);
 
 /**
+ * Get store metadata.
+ *
+ */
+void pal_metadata(pal_reader_t *reader, char **metadata, int32_t *metadata_len);
+
+/**
  * Fetch bytes corresponding to a given key.
  *
  * @param reader An active reader.

@@ -77,7 +77,9 @@ void Iterator::Next(const Nan::FunctionCallbackInfo<v8::Value> &info) {
 
   Iterator *iterator = ObjectWrap::Unwrap<Iterator>(info.This());
   Nan::Callback *callback = new Nan::Callback(info[0].As<v8::Function>());
-  Nan::AsyncQueueWorker(new IteratorWorker(callback, &iterator->_iterator));
+  IteratorWorker *worker = new IteratorWorker(callback, &iterator->_iterator);
+  worker->SaveToPersistent("iterator", info.This());
+  Nan::AsyncQueueWorker(worker);
 }
 
 /**

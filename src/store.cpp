@@ -69,15 +69,36 @@ void Store::Read(const Nan::FunctionCallbackInfo<v8::Value> &info) {
   int64_t valueSize;
   if (!pal_get(reader, node::Buffer::Data(keyBuf), keySize, &value, &valueSize)) {
     // Key not found.
-    info.GetReturnValue().Set(Nan::New<v8::Integer>(static_cast<int>(-1)));
-  } else if (valueSize <= availableValueSize) {
+    valueSize = -1;
+  } else if (valueSize > availableValueSize) {
+    // Return ~N (where N is the number of missing bytes).
+    valueSize = ~(valueSize - availableValueSize);
+  } else {
     // Value fits in destination buffer.
     std::memcpy(node::Buffer::Data(valueBuf), value, valueSize);
-    info.GetReturnValue().Set(Nan::New<v8::Integer>(static_cast<int>(valueSize)));
-  } else {
-    // Return ~N (where N is the number of missing bytes).
-    info.GetReturnValue().Set(Nan::New<v8::Integer>(static_cast<int>(~(valueSize - availableValueSize))));
   }
+  info.GetReturnValue().Set(Nan::New<v8::Integer>(static_cast<int>(valueSize)));
+}
+
+void Store::GetTimestamp(const Nan::FunctionCallbackInfo<v8::Value> &info) {
+  Store *store = ObjectWrap::Unwrap<Store>(info.This());
+  int64_t timestamp = pal_timestamp(store->_reader);
+  info.GetReturnValue().Set(Nan::New<v8::Number>(timestamp));
+}
+
+void Store::GetNumKeys(const Nan::FunctionCallbackInfo<v8::Value> &info) {
+  Store *store = ObjectWrap::Unwrap<Store>(info.This());
+  int32_t numKeys = pal_num_keys(store->_reader);
+  info.GetReturnValue().Set(Nan::New<v8::Integer>(static_cast<int>(numKeys)));
+}
+
+void Store::GetMetadata(const Nan::FunctionCallbackInfo<v8::Value> &info) {
+  Store *store = ObjectWrap::Unwrap<Store>(info.This());
+  char *addr;
+  int32_t size;
+  pal_metadata(store->_reader, &addr, &size);
+  Nan::MaybeLocal<v8::Object> buf = Nan::NewBuffer(addr, size);
+  info.GetReturnValue().Set(buf.ToLocalChecked());
 }
 
 /**
@@ -89,6 +110,9 @@ v8::Local<v8::FunctionTemplate> Store::Init() {
   tpl->SetClassName(Nan::New("Store").ToLocalChecked());
   tpl->InstanceTemplate()->SetInternalFieldCount(1);
   Nan::SetPrototypeMethod(tpl, "read", Store::Read);
+  Nan::SetPrototypeMethod(tpl, "getTimestamp", Store::GetTimestamp);
+  Nan::SetPrototypeMethod(tpl, "getNumKeys", Store::GetNumKeys);
+  Nan::SetPrototypeMethod(tpl, "getMetadata", Store::GetMetadata);
   return tpl;
 }
 
