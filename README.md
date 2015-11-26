@@ -21,7 +21,7 @@ var pal = require('pal');
   var store = new pal.Store('sample.store');
   var buf = new Buffer(5);
   var n = store.read(new Buffer([2]), buf);
-  var value = buf.slice(0, n); // new Buffer([4])
+  var value = buf.slice(0, n); // Buffer([4])
   ```
 
   To avoid unnecessary work, `pal` doesn't create new buffers when retrieving

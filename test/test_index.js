@@ -2,7 +2,7 @@
 
 'use strict';
 
-var pal = require('../lib'),
+var pal = require('../'),
     assert = require('assert');
 
 suite('index', function () {
@@ -35,6 +35,18 @@ suite('index', function () {
           );
           done();
         });
+    });
+
+    test('getTimestamp', function () {
+      assert.equal(store.getTimestamp(), 1447624649853);
+    });
+
+    test('getNumKeys', function () {
+      assert.equal(store.getNumKeys(), 3);
+    });
+
+    test('getMetadata', function () {
+      assert.deepEqual(store.getMetadata(), new Buffer(0));
     });
 
   });

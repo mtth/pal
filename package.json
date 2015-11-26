@@ -6,9 +6,8 @@
     "debug": "lldb -- node $(npm bin)/_mocha --ui tdd --no-timeouts",
     "test": "mocha --ui tdd --reporter dot"
   },
-  "main": "./lib",
   "files": [
-    "lib",
+    "index.js",
     "deps/murmur3/murmur3.c",
     "deps/murmur3/murmur3.h",
     "deps/murmur3/README.md",

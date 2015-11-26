@@ -2,7 +2,7 @@
 
 'use strict';
 
-var binding = require('../build/Release/binding'),
+var binding = require('./build/Release/binding'),
     fs = require('fs'),
     stream = require('stream'),
     util = require('util');
@@ -50,6 +50,7 @@ function Builder(opts) {
   stream.Transform.call(this, {readableObjectMode: true});
   opts = opts || {};
 
+  this._metadata = opts.metadata || new Buffer(0);
   this._numKeys = 0;
   this._numKeySizes = 0;
   this._offsets = []; // Current partition data offsets.
