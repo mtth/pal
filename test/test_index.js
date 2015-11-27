@@ -106,7 +106,7 @@ suite('index', function () {
       var s = pal.Store.createWriteStream(path, {noDistinct: true}, function (err) {
         assert.strictEqual(err, null);
         var store = new pal.Store(path);
-        // assert.equal(store.getNumKeys(), 0); TODO: Count keys, not values.
+        // assert.equal(store.getNumValues(), 0); TODO: Count keys, not values.
         assert.strictEqual(getValue(store, key), undefined);
         done();
       });

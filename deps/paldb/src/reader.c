@@ -394,7 +394,10 @@ char pal_iterator_next(pal_iterator_t *iterator, char **key, int32_t *key_len, c
   struct pal_partition *partition = NULL;
   while (
     iter->key_size <= reader->max_key_size &&
-    (partition = reader->partitions[iter->key_size]) == NULL
+    (
+      (partition = reader->partitions[iter->key_size]) == NULL ||
+      !partition->num_keys // Skip empty partitions.
+    )
   ) {
     iter->key_size++;
   }
@@ -407,7 +410,6 @@ char pal_iterator_next(pal_iterator_t *iterator, char **key, int32_t *key_len, c
   char *slot;
   int64_t data_offset;
   do {
-    // A non-null partition has at least one key.
     slot = partition->index + iter->index_offset;
     iter->index_offset += partition->slot_size;
     unpack_int64(slot + iter->key_size, &data_offset);

@@ -28,13 +28,21 @@ binding.Store.createWriteStream = function (filePath, opts, cb) {
         cb(err);
       }
     })
-    .on('end', function () {
-      fs.rename(path.join(tmpDir.name, '__all__'), filePath, function () {
+    .on('store', function (tmpPath, isCompact) {
+      if (isCompact) {
+        fs.rename(tmpPath, filePath, done);
+      } else {
+        var reader = new binding.Store(tmpPath).createReadStream();
+        var writer = binding.Store.createWriteStream(filePath, opts, done);
+        reader.pipe(writer);
+      }
+
+      function done() {
         tmpDir.removeCallback();
         if (cb) {
           cb(null);
         }
-      });
+      }
     });
 };
 
@@ -71,12 +79,14 @@ function Builder(dirPath, opts) {
   opts = opts || {};
 
   this._dirPath = dirPath;
-  this._numKeys = 0;
-  this._numPartitions = 0; // Number of active partitions.
+  this._numKeys = 0; // Active keys (removing deleted and overwritten).
+  this._numValues = 0; // All values (impractical to filter out ahead of time).
+  this._numPartitions = 0; // Active partitions.
   this._partitions = [];
-  this._loadFactor = opts.loadFactor || 0.75;
+  this._loadFactor = opts.loadFactor || 0.6;
   this._metadata = opts.metadata || new Buffer(0);
   this._noDistinct = !!opts.noDistinct;
+  this._compactionThreshold = opts.compactionThreshold || 0.8;
 
   this.on('finish', this._build.bind(this));
 }
@@ -100,17 +110,24 @@ Builder.prototype._write = function (obj, encoding, cb) {
     this._partitions[n] = p = new Partition(n, filePath);
     this._numPartitions++;
   }
-  this._numKeys++;
+  this._numValues++;
   p.addEntry(key, value);
   cb();
 };
 
 Builder.prototype._build = function () {
   var self = this;
-  var filePath = path.join(this._dirPath, '__all__');
+  var filePath = path.join(this._dirPath, '__full__');
   var writer = fs.createWriteStream(filePath, {defaultEncoding: 'binary'})
     .on('error', function (err) { self.emit('error', err); })
-    .on('close', function () { self.emit('end'); });
+    .on('close', function () {
+      var isCompact = (
+        self._numValues === 0 || // Empty store is always compact (!).
+        self._numKeys / self._numValues >= self._compactionThreshold
+      );
+      self.emit('store', filePath, isCompact);
+    });
+
   var offset = 0;
   var buf;
 
@@ -119,7 +136,7 @@ Builder.prototype._build = function () {
   buf.write('\x00\x09VERSION_1');
   buf.writeIntBE(0, 11, 2);
   buf.writeIntBE(Date.now(), 13, 6);
-  buf.writeIntBE(this._numKeys, 19, 4);
+  buf.writeIntBE(this._numValues, 19, 4);
   buf.writeIntBE(this._numPartitions, 23, 4);
   buf.writeIntBE(this._partitions.length - 1, 27, 4);
   writer.write(buf);
@@ -130,12 +147,8 @@ Builder.prototype._build = function () {
   var dataOffset = 0;
   try {
     var indices = this._partitions.map(function (p) {
-      if (!p) {
-        // No entries for this size.
-        return;
-      }
-
       var info = p.build(this._loadFactor, this._noDistinct);
+
       buf = new Buffer(28);
       buf.writeIntBE(info.keySize, 0, 4);
       buf.writeIntBE(info.numKeys, 4, 4);
@@ -147,9 +160,11 @@ Builder.prototype._build = function () {
       writer.write(buf);
       offset += 28;
 
+      this._numKeys += info.numKeys;
       indexOffset += info.index.length;
       dataOffset += info.dataSize;
-      return info.numKeys ? info.index : undefined;
+
+      return info.index;
     }, this);
   } catch (err) {
     // Likely duplicate key.
@@ -186,6 +201,11 @@ Builder.prototype._build = function () {
       writeData();
     }
   })();
+};
+
+// Should only be called after the store is built.
+Builder.prototype.shouldCompact = function () {
+  return this._numKeys / this._numValues < this._compactionThreshold;
 };
 
 /**
@@ -279,10 +299,12 @@ Partition.prototype.build = function (loadFactor, noDistinct) {
       throw new Error('duplicate key: 0x' + key.toString('hex'));
     }
 
-    if (!item.offset) {
-      index[pos + keySize] = 0; // Delete entry.
-    } else {
+    if (item.offset) {
       packLong(item.offset, index, pos + keySize);
+    } else if (index[pos + keySize]) {
+      // Delete entry.
+      numKeys--;
+      index[pos + keySize] = 0;
     }
   }, this);
 
