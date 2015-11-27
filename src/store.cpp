@@ -93,16 +93,32 @@ void Store::Read(const Nan::FunctionCallbackInfo<v8::Value> &info) {
   info.GetReturnValue().Set(Nan::New<v8::Integer>(static_cast<int>(valueSize)));
 }
 
-void Store::GetTimestamp(const Nan::FunctionCallbackInfo<v8::Value> &info) {
-  Store *store = ObjectWrap::Unwrap<Store>(info.This());
-  int64_t timestamp = pal_timestamp(store->_reader);
-  info.GetReturnValue().Set(Nan::New<v8::Number>(timestamp));
-}
+void Store::GetStatistics(const Nan::FunctionCallbackInfo<v8::Value> &info) {
+  Nan::EscapableHandleScope scope;
 
-void Store::GetNumKeys(const Nan::FunctionCallbackInfo<v8::Value> &info) {
   Store *store = ObjectWrap::Unwrap<Store>(info.This());
-  int32_t numKeys = pal_num_keys(store->_reader);
-  info.GetReturnValue().Set(Nan::New<v8::Integer>(static_cast<int>(numKeys)));
+  pal_statistics_t stats;
+  pal_statistics(store->_reader, &stats);
+
+  v8::Local<v8::Object> obj = Nan::New<v8::Object>();
+  obj->Set(
+    Nan::New("creationTimestamp").ToLocalChecked(),
+    Nan::New<v8::Number>(stats.timestamp)
+  );
+  obj->Set(
+    Nan::New("numValues").ToLocalChecked(),
+    Nan::New<v8::Number>(stats.num_values)
+  );
+  obj->Set(
+    Nan::New("indexSize").ToLocalChecked(),
+    Nan::New<v8::Number>(stats.index_size)
+  );
+  obj->Set(
+    Nan::New("dataSize").ToLocalChecked(),
+    Nan::New<v8::Number>(stats.data_size)
+  );
+
+  info.GetReturnValue().Set(scope.Escape(obj));
 }
 
 void Store::GetMetadata(const Nan::FunctionCallbackInfo<v8::Value> &info) {
@@ -123,8 +139,7 @@ v8::Local<v8::FunctionTemplate> Store::Init() {
   tpl->SetClassName(Nan::New("Store").ToLocalChecked());
   tpl->InstanceTemplate()->SetInternalFieldCount(1);
   Nan::SetPrototypeMethod(tpl, "read", Store::Read);
-  Nan::SetPrototypeMethod(tpl, "getTimestamp", Store::GetTimestamp);
-  Nan::SetPrototypeMethod(tpl, "getNumKeys", Store::GetNumKeys);
+  Nan::SetPrototypeMethod(tpl, "getStatistics", Store::GetStatistics);
   Nan::SetPrototypeMethod(tpl, "getMetadata", Store::GetMetadata);
   return tpl;
 }

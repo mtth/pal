@@ -9,7 +9,7 @@ var pal = require('pal');
 + Create a store:
 
   ```javascript
-  pal.Store.createWriteStream({path: 'sample.store'})
+  pal.Store.createWriteStream('sample.store')
     .write({key: new Buffer([1]), value: new Buffer([2, 3])})
     .write({key: new Buffer([2]), value: new Buffer([4])})
     .end();

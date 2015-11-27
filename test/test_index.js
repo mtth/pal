@@ -39,12 +39,16 @@ suite('index', function () {
         });
     });
 
-    test('getTimestamp', function () {
-      assert.equal(store.getTimestamp(), 1447624649853);
-    });
-
-    test('getNumKeys', function () {
-      assert.equal(store.getNumKeys(), 3);
+    test('getStatistics', function () {
+      assert.deepEqual(
+        store.getStatistics(),
+        {
+          creationTimestamp: 1447624649853,
+          numValues: 3,
+          indexSize: 26,
+          dataSize: 8
+        }
+      );
     });
 
     test('getMetadata', function () {
@@ -59,7 +63,7 @@ suite('index', function () {
       var path = tmp.tmpNameSync();
       var s = pal.Store.createWriteStream(path, function () {
         var store = new pal.Store(path);
-        assert.equal(store.getNumKeys(), 0);
+        assert.equal(store.getStatistics().numValues, 0);
         done();
       });
       s.end();
@@ -71,7 +75,7 @@ suite('index', function () {
       var value = new Buffer([2]);
       var s = pal.Store.createWriteStream(path, function () {
         var store = new pal.Store(path);
-        assert.equal(store.getNumKeys(), 1);
+        assert.equal(store.getStatistics().numValues, 1);
         assert.deepEqual(getValue(store, key), value);
         assert.strictEqual(getValue(store, value), undefined);
         done();

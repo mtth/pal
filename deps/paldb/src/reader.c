@@ -26,7 +26,7 @@ struct pal_partition {
 
 struct pal_reader {
   int64_t timestamp;
-  int32_t num_keys;
+  int32_t num_values;
   int32_t max_key_size;
   struct pal_partition **partitions; // Array indexed by key length.
   int32_t metadata_size;
@@ -35,6 +35,7 @@ struct pal_reader {
   char *metadata;
   char *index;
   char *data;
+
 };
 
 struct pal_iterator {
@@ -236,7 +237,7 @@ pal_reader_t *pal_init(const char *path) {
   if (
     read_version(file) ||
     read_int64(file, &r->timestamp) ||
-    read_int32(file, &r->num_keys) ||
+    read_int32(file, &r->num_values) ||
     read_int32(file, &num_non_empty_partitions) ||
     read_int32(file, &r->max_key_size)
   ) {
@@ -330,9 +331,12 @@ file_error:
   return NULL;
 }
 
-int64_t pal_timestamp(pal_reader_t *reader) { return reader->timestamp; }
-
-int32_t pal_num_keys(pal_reader_t *reader) { return reader->num_keys; }
+void pal_statistics(pal_reader_t *reader, pal_statistics_t *stats) {
+  stats->timestamp = reader->timestamp;
+  stats->num_values = reader->num_values;
+  stats->index_size = reader->index_size;
+  stats->data_size = reader->data_size;
+}
 
 void pal_metadata(pal_reader_t *reader, char **metadata, int32_t *metadata_len) {
   *metadata = reader->metadata;

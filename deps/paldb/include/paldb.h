@@ -5,6 +5,13 @@
 
 typedef struct pal_reader pal_reader_t;
 
+typedef struct pal_statistics {
+  int64_t timestamp;
+  int32_t num_values;
+  int32_t index_size;
+  int64_t data_size;
+} pal_statistics_t;
+
 // Opaque iterator (with a bit of padding).
 typedef struct {
   char data[48];
@@ -34,16 +41,10 @@ extern enum pal_error PAL_ERRNO;
 pal_reader_t *pal_init(const char *path);
 
 /**
- * Get store creation timestamp.
+ * Get store statistics.
  *
  */
-int64_t pal_timestamp(pal_reader_t *reader);
-
-/**
- * Get total number of keys in store.
- *
- */
-int32_t pal_num_keys(pal_reader_t *reader);
+void pal_statistics(pal_reader_t *reader, pal_statistics_t *stats);
 
 /**
  * Get store metadata.

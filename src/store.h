@@ -28,8 +28,7 @@ private:
 
   static void New(const Nan::FunctionCallbackInfo<v8::Value> &info);
   static void Read(const Nan::FunctionCallbackInfo<v8::Value> &info);
-  static void GetTimestamp(const Nan::FunctionCallbackInfo<v8::Value> &info);
-  static void GetNumKeys(const Nan::FunctionCallbackInfo<v8::Value> &info);
+  static void GetStatistics(const Nan::FunctionCallbackInfo<v8::Value> &info);
   static void GetMetadata(const Nan::FunctionCallbackInfo<v8::Value> &info);
 };
 
