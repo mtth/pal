@@ -1,6 +1,6 @@
 {
   "name": "pal",
-  "version": "0.1.0",
+  "version": "0.1.2",
   "scripts": {
     "clean": "rm -rf build node_modules",
     "cover": "istanbul cover _mocha -- --ui tdd --reporter dot",
@@ -8,7 +8,9 @@
     "test": "mocha --ui tdd --reporter dot"
   },
   "files": [
+    "binding.gyp",
     "index.js",
+    "src",
     "deps/murmur3/murmur3.c",
     "deps/murmur3/murmur3.h",
     "deps/murmur3/README.md",
