@@ -100,7 +100,7 @@ function Builder(dirPath, opts) {
 
   var self = this;
   this.on('finish', function () {
-    var filePath = path.join(dirPath, '__full__');
+    var filePath = path.join(self._dirPath, '__full__');
     var writer = fs.createWriteStream(filePath, {defaultEncoding: 'binary'})
       .on('error', function (err) { self.emit('error', err); })
       .on('open', function () { self._build(writer); })
@@ -229,7 +229,6 @@ Builder.prototype._build = function (writer) {
 function Partition(keySize, path) {
   this._keySize = keySize;
   this._items = [];
-  this._slotSize = 0;
   this._offset = 1; // Data offset.
   this._path = path;
   this._stream = fs.createWriteStream(this._path, {defaultEncoding: 'binary'});
@@ -248,19 +247,18 @@ Partition.prototype.addEntry = function (key, value) {
   var packedSize = new Buffer(9); // Maximum packed non-negative long length.
   var packedSizeLength = packLong(value.length, packedSize);
   this._items.push({key: key, offset: this._offset});
-  this._slotSize = Math.max(this._slotSize, this._keySize + packedSizeLength);
   this._offset += packedSizeLength + value.length;
 
   // TODO: Avoid repeatedly rewriting the same value (as in original PalDB).
   this._stream.write(packedSize.slice(0, packedSizeLength));
-  this._stream.write(value);
+  return this._stream.write(value);
 };
 
 Partition.prototype.build = function (loadFactor, noDistinct) {
   assert(typeof loadFactor == 'number' && loadFactor > 0 && loadFactor <= 1);
 
   var keySize = this._keySize;
-  var slotSize = this._slotSize;
+  var slotSize = keySize + packLong(this._offset, new Buffer(9));
   var nSlots =  this._items.length / loadFactor | 0;
   var numKeys = 0;
   var index = new Buffer(nSlots * slotSize);
