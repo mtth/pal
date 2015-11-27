@@ -10,7 +10,6 @@ var binding = require('./build/Release/binding'),
     tmp = require('tmp'),
     util = require('util');
 
-// Add the final methods to the prototype.
 binding.Store.prototype.createReadStream = function () {
   return new Reader(this);
 };
@@ -21,16 +20,19 @@ binding.Store.createWriteStream = function (filePath, opts, cb) {
     opts = undefined;
   }
   var tmpDir = tmp.dirSync({unsafeCleanup: true});
-  return new Builder(tmpDir.name, opts)
+  var builder = new Builder(tmpDir.name, opts);
+  return builder
     .on('error', function (err) {
       tmpDir.removeCallback();
-      cb(err);
+      if (cb) {
+        cb(err);
+      }
     })
     .on('end', function () {
       fs.rename(path.join(tmpDir.name, '__all__'), filePath, function () {
         tmpDir.removeCallback();
         if (cb) {
-          cb();
+          cb(null);
         }
       });
     });
@@ -74,6 +76,7 @@ function Builder(dirPath, opts) {
   this._partitions = [];
   this._loadFactor = opts.loadFactor || 0.75;
   this._metadata = opts.metadata || new Buffer(0);
+  this._noDistinct = !!opts.noDistinct;
 
   this.on('finish', this._build.bind(this));
 }
@@ -125,35 +128,34 @@ Builder.prototype._build = function () {
   // Build partitions.
   var indexOffset = 0;
   var dataOffset = 0;
-  var indices = this._partitions.map(function (p) {
-    if (!p) {
-      // No entries for this size.
-      return;
-    }
+  try {
+    var indices = this._partitions.map(function (p) {
+      if (!p) {
+        // No entries for this size.
+        return;
+      }
 
-    try {
       var info = p.build(this._loadFactor, this._noDistinct);
-    } catch (err) {
-      // Likely duplicate key.
-      this.emit('error', err);
-      return;
-    }
+      buf = new Buffer(28);
+      buf.writeIntBE(info.keySize, 0, 4);
+      buf.writeIntBE(info.numKeys, 4, 4);
+      buf.writeIntBE(info.numSlots, 8, 4);
+      buf.writeIntBE(info.slotSize, 12, 4);
+      buf.writeIntBE(indexOffset, 16, 4);
+      buf.writeIntBE(0, 20, 2);
+      buf.writeIntBE(dataOffset, 22, 6);
+      writer.write(buf);
+      offset += 28;
 
-    buf = new Buffer(28);
-    buf.writeIntBE(info.keySize, 0, 4);
-    buf.writeIntBE(info.numKeys, 4, 4);
-    buf.writeIntBE(info.numSlots, 8, 4);
-    buf.writeIntBE(info.slotSize, 12, 4);
-    buf.writeIntBE(indexOffset, 16, 4);
-    buf.writeIntBE(0, 20, 2);
-    buf.writeIntBE(dataOffset, 22, 6);
-    writer.write(buf);
-    offset += 28;
-
-    indexOffset += info.index.length;
-    dataOffset += info.dataSize;
-    return info.index;
-  }, this);
+      indexOffset += info.index.length;
+      dataOffset += info.dataSize;
+      return info.numKeys ? info.index : undefined;
+    }, this);
+  } catch (err) {
+    // Likely duplicate key.
+    this.emit('error', err);
+    return;
+  }
 
   // Write metadata.
   buf = new Buffer(4);
@@ -228,7 +230,7 @@ function Partition(keySize, path) {
 Partition.prototype.addEntry = function (key, value) {
   assert.equal(key.length, this._keySize);
 
-  if (value === null) {
+  if (value === undefined) {
     // Delete key signal.
     this._items.push({key: key, offset: 0});
     return;
@@ -286,7 +288,7 @@ Partition.prototype.build = function (loadFactor, noDistinct) {
 
   return {
     keySize: keySize,
-    numKeys: this._items.length,
+    numKeys: numKeys,
     numSlots: nSlots,
     slotSize: slotSize,
     dataSize: this._offset,

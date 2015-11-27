@@ -4,6 +4,7 @@
 
 var pal = require('../'),
     assert = require('assert'),
+    fs = require('fs'),
     tmp = require('tmp');
 
 suite('index', function () {
@@ -55,7 +56,7 @@ suite('index', function () {
   suite('createWriteStream', function () {
 
     test('empty', function (done) {
-      var path = tmp.fileSync().name;
+      var path = tmp.tmpNameSync();
       var s = pal.Store.createWriteStream(path, function () {
         var store = new pal.Store(path);
         assert.equal(store.getNumKeys(), 0);
@@ -65,15 +66,64 @@ suite('index', function () {
     });
 
     test('single key', function (done) {
-      var path = tmp.fileSync().name;
+      var path = tmp.tmpNameSync();
+      var key = new Buffer([1]);
+      var value = new Buffer([2]);
       var s = pal.Store.createWriteStream(path, function () {
         var store = new pal.Store(path);
         assert.equal(store.getNumKeys(), 1);
+        assert.deepEqual(getValue(store, key), value);
+        assert.strictEqual(getValue(store, value), undefined);
         done();
       });
-      s.end({key: new Buffer([1]), value: new Buffer([2])});
+      s.end({key: key, value: value});
+    });
+
+    test('duplicate key', function (done) {
+      var path = tmp.tmpNameSync();
+      var key = new Buffer([1]);
+      var s = pal.Store.createWriteStream(path, function (err) {
+        assert(err);
+        setTimeout(function () {
+          try {
+            fs.statSync(path);
+          } catch (err) {
+            done();
+          }
+        }, 0);
+      });
+      s.write({key: key, value: new Buffer([1])});
+      s.end({key: key, value: new Buffer([2])});
+    });
+
+    test('delete key', function (done) {
+      var path = tmp.fileSync().name;
+      var key = new Buffer([1]);
+      var s = pal.Store.createWriteStream(path, {noDistinct: true}, function (err) {
+        assert.strictEqual(err, null);
+        var store = new pal.Store(path);
+        // assert.equal(store.getNumKeys(), 0); TODO: Count keys, not values.
+        assert.strictEqual(getValue(store, key), undefined);
+        done();
+      });
+      s.write({key: key, value: key});
+      s.end({key: key, value: undefined});
     });
 
   });
+
+  function getValue(store, key) {
+    var buf = new Buffer(10);
+    var len = store.read(key, buf);
+    if (len >= 0) {
+      return buf.slice(0, len);
+    } else if (len == -1) {
+      return undefined;
+    } else {
+      buf = new Buffer(buf.length + ~len);
+      store.read(key, buf);
+      return buf;
+    }
+  }
 
 });

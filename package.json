@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "scripts": {
     "clean": "rm -rf build node_modules",
+    "cover": "istanbul cover _mocha -- --ui tdd --reporter dot",
     "debug": "lldb -- node $(npm bin)/_mocha --ui tdd --no-timeouts",
     "test": "mocha --ui tdd --reporter dot"
   },
@@ -19,6 +20,7 @@
     "tmp": "^0.0.28"
   },
   "devDependencies": {
+    "istanbul": "^0.4.1",
     "mocha": "^2.3.3"
   },
   "repository": {
