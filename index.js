@@ -132,6 +132,7 @@ Builder.prototype._build = function () {
   var self = this;
   var filePath = path.join(this._dirPath, '__full__');
   var writer = fs.createWriteStream(filePath, {defaultEncoding: 'binary'})
+    .on('error', function (err) { self.emit('error', err); })
     .on('close', function () {
       var isCompact = (
         self._numValues === 0 || // Empty store is always compact (!).

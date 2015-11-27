@@ -10,7 +10,7 @@
         "deps/paldb/src/reader.c"
       ],
       "include_dirs" : [
-          "<!(node -e \"require('nan')\")"
+        "<!(node -e \"require('nan')\")"
       ]
     }
   ]
