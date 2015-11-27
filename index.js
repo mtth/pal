@@ -3,19 +3,37 @@
 'use strict';
 
 var binding = require('./build/Release/binding'),
+    assert = require('assert'),
     fs = require('fs'),
+    path = require('path'),
     stream = require('stream'),
+    tmp = require('tmp'),
     util = require('util');
 
-// Function defined from CPP.
-var Store = binding.Store;
-Store.prototype.createReadStream = function () { return new Reader(this); };
-Store.createWriteStream = function (opts) {
-  var builder = new Builder(opts);
-  if (opts && opts.path) {
-    builder.pipe(fs.createWriteStream(opts.path, {defaultEncoding: 'binary'}));
+// Add the final methods to the prototype.
+binding.Store.prototype.createReadStream = function () {
+  return new Reader(this);
+};
+
+binding.Store.createWriteStream = function (filePath, opts, cb) {
+  if (typeof opts == 'function' && !cb) {
+    cb = opts;
+    opts = undefined;
   }
-  return builder;
+  var tmpDir = tmp.dirSync({unsafeCleanup: true});
+  return new Builder(tmpDir.name, opts)
+    .on('error', function (err) {
+      tmpDir.removeCallback();
+      cb(err);
+    })
+    .on('end', function () {
+      fs.rename(path.join(tmpDir.name, '__all__'), filePath, function () {
+        tmpDir.removeCallback();
+        if (cb) {
+          cb();
+        }
+      });
+    });
 };
 
 /**
@@ -46,50 +64,51 @@ Reader.prototype._read = function () {
  * Store duplex stream.
  *
  */
-function Builder(opts) {
-  stream.Transform.call(this, {readableObjectMode: true});
+function Builder(dirPath, opts) {
+  stream.Writable.call(this, {objectMode: true});
   opts = opts || {};
 
-  this._metadata = opts.metadata || new Buffer(0);
+  this._dirPath = dirPath;
   this._numKeys = 0;
-  this._numKeySizes = 0;
-  this._offsets = []; // Current partition data offsets.
-  this._indices = []; // Index metadata.
-  this._streams = []; // Partition data streams.
-  this._createStream = opts.createStream || createStream;
-}
-util.inherits(Builder, stream.Transform);
+  this._numPartitions = 0; // Number of active partitions.
+  this._partitions = [];
+  this._loadFactor = opts.loadFactor || 0.75;
+  this._metadata = opts.metadata || new Buffer(0);
 
-Builder.prototype._transform = function (obj, encoding, cb) {
+  this.on('finish', this._build.bind(this));
+}
+util.inherits(Builder, stream.Writable);
+
+Builder.prototype._write = function (obj, encoding, cb) {
   var key = obj.key;
   var value = obj.value;
-  if (!Buffer.isBuffer(key) || !Buffer.isBuffer(value)) {
-    this.emit('error', new Error('invalid data'));
+  if (
+    !Buffer.isBuffer(key) ||
+    (!Buffer.isBuffer(value) && value !== undefined)
+  ) {
+    cb(new Error('invalid data: ' + obj));
     return;
   }
 
-  var size = key.length;
-  var offset = this._offsets[size];
-  if (!offset) {
-    this._numKeySizes++;
-    this._offsets[size] = offset = 0;
-    this._indices[size] = [];
-    this._streams[size] = this._createPartitionStream(key.length);
+  var n = key.length;
+  var p = this._partitions[n];
+  if (!p) {
+    var filePath = path.join(this._dirPath, '' + n);
+    this._partitions[n] = p = new Partition(n, filePath);
+    this._numPartitions++;
   }
-
-  this.indices[size].push({key: key, offset: offset});
-
-  var packedValueSize = pack(value.length);
   this._numKeys++;
-  this._offsets[size] += packedValueSize.length + value.length;
-
-  var stream = this._streams[size];
-  stream.write(packedValueSize);
-  stream.write(value);
+  p.addEntry(key, value);
   cb();
 };
 
-Builder.prototype._flush = function (cb) {
+Builder.prototype._build = function () {
+  var self = this;
+  var filePath = path.join(this._dirPath, '__all__');
+  var writer = fs.createWriteStream(filePath, {defaultEncoding: 'binary'})
+    .on('error', function (err) { self.emit('error', err); })
+    .on('close', function () { self.emit('end'); });
+  var offset = 0;
   var buf;
 
   // Write header.
@@ -98,56 +117,194 @@ Builder.prototype._flush = function (cb) {
   buf.writeIntBE(0, 11, 2);
   buf.writeIntBE(Date.now(), 13, 6);
   buf.writeIntBE(this._numKeys, 19, 4);
-  buf.writeIntBE(this._numKeySizes, 23, 4);
-  buf.writeIntBE(this._offsets.length + 1, 27, 4);
-  this.push(buf);
+  buf.writeIntBE(this._numPartitions, 23, 4);
+  buf.writeIntBE(this._partitions.length - 1, 27, 4);
+  writer.write(buf);
+  offset += 31;
 
-  // Build indices.
-  var index = new Buffer();
+  // Build partitions.
+  var indexOffset = 0;
+  var dataOffset = 0;
+  var indices = this._partitions.map(function (p) {
+    if (!p) {
+      // No entries for this size.
+      return;
+    }
 
-  // Write serializers and offsets.
-  buf = new Buffer(16);
-  buf.writeIntBE(0, 0, 4);
-  buf.writeIntBE(0, 4, 4); // Index offset.
-  buf.writeIntBE(0, 8, 2);
-  buf.writeIntBE(0, 10, 6); // Data offset.
-  this.push(buf);
+    try {
+      var info = p.build(this._loadFactor, this._noDistinct);
+    } catch (err) {
+      // Likely duplicate key.
+      this.emit('error', err);
+      return;
+    }
 
-  // Push index.
-  this.push(index);
+    buf = new Buffer(28);
+    buf.writeIntBE(info.keySize, 0, 4);
+    buf.writeIntBE(info.numKeys, 4, 4);
+    buf.writeIntBE(info.numSlots, 8, 4);
+    buf.writeIntBE(info.slotSize, 12, 4);
+    buf.writeIntBE(indexOffset, 16, 4);
+    buf.writeIntBE(0, 20, 2);
+    buf.writeIntBE(dataOffset, 22, 6);
+    writer.write(buf);
+    offset += 28;
+
+    indexOffset += info.index.length;
+    dataOffset += info.dataSize;
+    return info.index;
+  }, this);
+
+  // Write metadata.
+  buf = new Buffer(4);
+  buf.writeIntBE(this._metadata.length, 0, 4);
+  writer.write(buf);
+  writer.write(this._metadata);
+  offset += 4 + this._metadata.length;
+
+  // Offsets.
+  buf = new Buffer(12);
+  buf.writeIntBE(offset + 12, 0, 4); // Index offset.
+  buf.writeIntBE(0, 4, 2);
+  buf.writeIntBE(offset + 12 + indexOffset, 6, 6); // Data offset.
+  writer.write(buf);
+
+  // Push indices.
+  indices.forEach(function (index) { writer.write(index); });
 
   // Append data.
-  var self = this;
-  var streams = this._streams;
-  (function appendStream(keySize) {
-    if (keySize > streams.length) {
-      cb(); // Done.
+  var keySize = 0;
+  (function writeData() {
+    var partition = self._partitions[keySize++];
+    if (partition) {
+      partition.pipeValues(writer, writeData);
+    } else if (keySize > self._partitions.length) {
+      writer.end(); // Done.
     } else {
-      var stream = streams[keySize++];
-      if (stream) {
-        stream
-          .on('end', function () { appendStream(keySize); })
-          .pipe(self, {end: false});
-        stream.end(); // Force uncork.
-      } else {
-        appendStream(keySize);
-      }
+      writeData();
     }
-  })(0);
+  })();
 };
 
-function createStream() {
-  var stream = new stream.PassThrough();
-  stream.cork();
-  return stream;
+/**
+ * Pack a (non-negative) integer.
+ *
+ * Returns new position in buffer.
+ *
+ */
+function packLong(n, buf, pos) {
+  pos = pos | 0;
+
+  if (n === (n | 0)) {
+    // Won't overflow, we can use integer arithmetic.
+    do {
+      buf[pos] = n & 0x7f;
+      n >>= 7;
+    } while (n && (buf[pos++] |= 0x80));
+  } else {
+    // We have to use slower floating arithmetic.
+    do {
+      buf[pos] = n & 0x7f;
+      n /= 128;
+    } while (n >= 1 && (buf[pos++] |= 0x80));
+  }
+  return ++pos;
 }
 
 /**
- * Pack an integer.
+ * A store's partition, containing only keys of a same length.
  *
  */
-function pack() {}
+function Partition(keySize, path) {
+  this._keySize = keySize;
+  this._items = [];
+  this._slotSize = 0;
+  this._offset = 1; // Data offset.
+  this._path = path;
+  this._stream = fs.createWriteStream(this._path, {defaultEncoding: 'binary'});
+  this._stream.write(new Buffer([0])); // Reserve 0 data offset.
+}
+
+Partition.prototype.addEntry = function (key, value) {
+  assert.equal(key.length, this._keySize);
+
+  if (value === null) {
+    // Delete key signal.
+    this._items.push({key: key, offset: 0});
+    return;
+  }
+
+  var packedSize = new Buffer(9); // Maximum packed non-negative long length.
+  var packedSizeLength = packLong(value.length, packedSize);
+  this._items.push({key: key, offset: this._offset});
+  this._slotSize = Math.max(this._slotSize, this._keySize + packedSizeLength);
+  this._offset += packedSizeLength + value.length;
+
+  // TODO: Avoid repeatedly rewriting the same value (as in original PalDB).
+  this._stream.write(packedSize.slice(0, packedSizeLength));
+  this._stream.write(value);
+};
+
+Partition.prototype.build = function (loadFactor, noDistinct) {
+  assert(typeof loadFactor == 'number' && loadFactor > 0 && loadFactor <= 1);
+
+  var keySize = this._keySize;
+  var slotSize = this._slotSize;
+  var nSlots =  this._items.length / loadFactor | 0;
+  var numKeys = 0;
+  var index = new Buffer(nSlots * slotSize);
+  index.fill(0);
+
+  this._items.forEach(function (item) {
+    var key = item.key;
+    var pos = (binding.hash(key) * slotSize) % index.length;
+    var attempt = 0;
+
+    while (
+      index[pos + keySize] &&
+      !key.equals(index.slice(pos, pos + keySize))
+    ) {
+      // Collision.
+      pos = (pos + slotSize) % index.length;
+      assert(attempt++ < nSlots);
+    }
+
+    if (!index[pos + keySize]) {
+      // New key.
+      key.copy(index, pos, 0, keySize);
+      numKeys++;
+    } else if (!noDistinct) {
+      throw new Error('duplicate key: 0x' + key.toString('hex'));
+    }
+
+    if (!item.offset) {
+      index[pos + keySize] = 0; // Delete entry.
+    } else {
+      packLong(item.offset, index, pos + keySize);
+    }
+  }, this);
+
+  return {
+    keySize: keySize,
+    numKeys: this._items.length,
+    numSlots: nSlots,
+    slotSize: slotSize,
+    dataSize: this._offset,
+    index: index
+  };
+};
+
+Partition.prototype.pipeValues = function (dst, cb) {
+  var path = this._path;
+  this._stream
+    .on('finish', function () {
+      fs.createReadStream(path, {defaultEncoding: 'binary'})
+        .on('end', cb)
+        .pipe(dst, {end: false});
+    })
+    .end();
+};
 
 module.exports = {
-  Store: Store
+  Store: binding.Store
 };

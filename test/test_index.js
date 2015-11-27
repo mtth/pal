@@ -3,11 +3,12 @@
 'use strict';
 
 var pal = require('../'),
-    assert = require('assert');
+    assert = require('assert'),
+    tmp = require('tmp');
 
 suite('index', function () {
 
-  suite('store', function () {
+  suite('Store', function () {
 
     var store = new pal.Store('test/dat/numbers.store');
 
@@ -47,6 +48,30 @@ suite('index', function () {
 
     test('getMetadata', function () {
       assert.deepEqual(store.getMetadata(), new Buffer(0));
+    });
+
+  });
+
+  suite('createWriteStream', function () {
+
+    test('empty', function (done) {
+      var path = tmp.fileSync().name;
+      var s = pal.Store.createWriteStream(path, function () {
+        var store = new pal.Store(path);
+        assert.equal(store.getNumKeys(), 0);
+        done();
+      });
+      s.end();
+    });
+
+    test('single key', function (done) {
+      var path = tmp.fileSync().name;
+      var s = pal.Store.createWriteStream(path, function () {
+        var store = new pal.Store(path);
+        assert.equal(store.getNumKeys(), 1);
+        done();
+      });
+      s.end({key: new Buffer([1]), value: new Buffer([2])});
     });
 
   });

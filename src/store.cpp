@@ -110,7 +110,7 @@ void Store::GetMetadata(const Nan::FunctionCallbackInfo<v8::Value> &info) {
   char *addr;
   int32_t size;
   pal_metadata(store->_reader, &addr, &size);
-  Nan::MaybeLocal<v8::Object> buf = Nan::NewBuffer(addr, size);
+  Nan::MaybeLocal<v8::Object> buf = Nan::CopyBuffer(addr, size);
   info.GetReturnValue().Set(buf.ToLocalChecked());
 }
 

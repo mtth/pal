@@ -15,7 +15,8 @@
     "deps/paldb/src/reader.c"
   ],
   "dependencies": {
-    "nan": "^2.1.0"
+    "nan": "^2.1.0",
+    "tmp": "^0.0.28"
   },
   "devDependencies": {
     "mocha": "^2.3.3"
