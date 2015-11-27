@@ -402,7 +402,7 @@ char pal_iterator_next(pal_iterator_t *iterator, char **key, int32_t *key_len, c
     iter->key_size++;
   }
 
-  if (partition == NULL) {
+  if (iter->key_size > reader->max_key_size) {
     // End of iterator.
     return 0;
   }

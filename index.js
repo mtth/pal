@@ -10,6 +10,7 @@ var binding = require('./build/Release/binding'),
     tmp = require('tmp'),
     util = require('util');
 
+
 binding.Store.prototype.createReadStream = function () {
   return new Reader(this);
 };
@@ -19,16 +20,15 @@ binding.Store.createWriteStream = function (filePath, opts, cb) {
     cb = opts;
     opts = undefined;
   }
+
   var tmpDir = tmp.dirSync({unsafeCleanup: true});
-  var builder = new Builder(tmpDir.name, opts);
-  return builder
-    .on('error', function (err) {
-      tmpDir.removeCallback();
-      if (cb) {
-        cb(err);
+  return new Builder(tmpDir.name, opts)
+    .on('store', function (err, tmpPath, isCompact) {
+      if (err) {
+        done(err);
+        return;
       }
-    })
-    .on('store', function (tmpPath, isCompact) {
+
       if (isCompact) {
         fs.rename(tmpPath, filePath, done);
       } else {
@@ -36,15 +36,19 @@ binding.Store.createWriteStream = function (filePath, opts, cb) {
         var writer = binding.Store.createWriteStream(filePath, opts, done);
         reader.pipe(writer);
       }
-
-      function done() {
-        tmpDir.removeCallback();
-        if (cb) {
-          cb(null);
-        }
-      }
     });
+
+  function done(err) {
+    tmpDir.removeCallback();
+    if (cb) {
+      cb(err);
+    } else if (err) {
+      throw err;
+    }
+  }
 };
+
+// Helpers.
 
 /**
  * Store read stream.
@@ -71,7 +75,10 @@ Reader.prototype._read = function () {
 };
 
 /**
- * Store duplex stream.
+ * Store write stream.
+ *
+ * It emits a `'store'` event with two arguments when done (the temporary path
+ * where it was built and whether it is below the compaction threshold).
  *
  */
 function Builder(dirPath, opts) {
@@ -79,14 +86,17 @@ function Builder(dirPath, opts) {
   opts = opts || {};
 
   this._dirPath = dirPath;
+  this._loadFactor = opts.loadFactor || 0.6;
+  this._metadata = opts.metadata || new Buffer(0);
+  this._noDistinct = !!opts.noDistinct;
+  this._compactionThreshold = typeof opts.compactionThreshold == 'undefined' ?
+    0.8 :
+    opts.compactionThreshold;
+
   this._numKeys = 0; // Active keys (removing deleted and overwritten).
   this._numValues = 0; // All values (impractical to filter out ahead of time).
   this._numPartitions = 0; // Active partitions.
   this._partitions = [];
-  this._loadFactor = opts.loadFactor || 0.6;
-  this._metadata = opts.metadata || new Buffer(0);
-  this._noDistinct = !!opts.noDistinct;
-  this._compactionThreshold = opts.compactionThreshold || 0.8;
 
   this.on('finish', this._build.bind(this));
 }
@@ -110,7 +120,10 @@ Builder.prototype._write = function (obj, encoding, cb) {
     this._partitions[n] = p = new Partition(n, filePath);
     this._numPartitions++;
   }
-  this._numValues++;
+
+  if (value) {
+    this._numValues++;
+  }
   p.addEntry(key, value);
   cb();
 };
@@ -119,13 +132,12 @@ Builder.prototype._build = function () {
   var self = this;
   var filePath = path.join(this._dirPath, '__full__');
   var writer = fs.createWriteStream(filePath, {defaultEncoding: 'binary'})
-    .on('error', function (err) { self.emit('error', err); })
     .on('close', function () {
       var isCompact = (
         self._numValues === 0 || // Empty store is always compact (!).
         self._numKeys / self._numValues >= self._compactionThreshold
       );
-      self.emit('store', filePath, isCompact);
+      self.emit('store', null, filePath, isCompact);
     });
 
   var offset = 0;
@@ -168,7 +180,7 @@ Builder.prototype._build = function () {
     }, this);
   } catch (err) {
     // Likely duplicate key.
-    this.emit('error', err);
+    this.emit('store', err);
     return;
   }
 
@@ -203,38 +215,12 @@ Builder.prototype._build = function () {
   })();
 };
 
-// Should only be called after the store is built.
-Builder.prototype.shouldCompact = function () {
-  return this._numKeys / this._numValues < this._compactionThreshold;
-};
-
-/**
- * Pack a (non-negative) integer.
- *
- * Returns new position in buffer.
- *
- */
-function packLong(n, buf, pos) {
-  pos = pos | 0;
-
-  if (n === (n | 0)) {
-    // Won't overflow, we can use integer arithmetic.
-    do {
-      buf[pos] = n & 0x7f;
-      n >>= 7;
-    } while (n && (buf[pos++] |= 0x80));
-  } else {
-    // We have to use slower floating arithmetic.
-    do {
-      buf[pos] = n & 0x7f;
-      n /= 128;
-    } while (n >= 1 && (buf[pos++] |= 0x80));
-  }
-  return ++pos;
-}
-
 /**
  * A store's partition, containing only keys of a same length.
+ *
+ * Values are not kept in memory, but written to disk as they are added. This
+ * has the advantage of supporting much larger data sizes but prevents
+ * efficient compaction.
  *
  */
 function Partition(keySize, path) {
@@ -328,6 +314,32 @@ Partition.prototype.pipeValues = function (dst, cb) {
     })
     .end();
 };
+
+/**
+ * Pack a (non-negative) integer.
+ *
+ * Returns new position in buffer.
+ *
+ */
+function packLong(n, buf, pos) {
+  pos = pos | 0;
+
+  if (n === (n | 0)) {
+    // Won't overflow, we can use integer arithmetic.
+    do {
+      buf[pos] = n & 0x7f;
+      n >>= 7;
+    } while (n && (buf[pos++] |= 0x80));
+  } else {
+    // We have to use slower floating arithmetic.
+    do {
+      buf[pos] = n & 0x7f;
+      n /= 128;
+    } while (n >= 1 && (buf[pos++] |= 0x80));
+  }
+  return ++pos;
+}
+
 
 module.exports = {
   Store: binding.Store

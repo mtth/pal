@@ -69,6 +69,18 @@ suite('index', function () {
       s.end();
     });
 
+    test('metadata', function (done) {
+      var path = tmp.tmpNameSync();
+      var buf = new Buffer([48, 49]);
+      var opts = {metadata: buf};
+      var s = pal.Store.createWriteStream(path, opts, function () {
+        var store = new pal.Store(path);
+        assert.deepEqual(store.getMetadata(), buf);
+        done();
+      });
+      s.end();
+    });
+
     test('single key', function (done) {
       var path = tmp.tmpNameSync();
       var key = new Buffer([1]);
@@ -83,6 +95,45 @@ suite('index', function () {
       s.end({key: key, value: value});
     });
 
+    test('invalid entry', function (done) {
+      var path = tmp.tmpNameSync();
+      var key = new Buffer([1]);
+      var numErrors = 0;
+      var s = pal.Store.createWriteStream(path)
+        .on('error', function (err) {
+          assert(err);
+          numErrors++;
+        })
+        .on('store', function () {
+          assert.equal(numErrors, 1);
+          done();
+        });
+      s.write({key: key, value: 12});
+      s.end();
+    });
+
+    test('collision', function (done) {
+      var path = tmp.tmpNameSync();
+      var opts = {loadFactor: 1};
+      var entries = [
+        {key: new Buffer([1]), value: new Buffer([1])},
+        {key: new Buffer([2]), value: new Buffer([1])},
+        {key: new Buffer([3]), value: new Buffer([1])},
+        {key: new Buffer([4]), value: new Buffer([1])},
+        {key: new Buffer([5]), value: new Buffer([1])}
+      ];
+      var s = pal.Store.createWriteStream(path, opts, function (err) {
+        assert.strictEqual(err, null);
+        getEntries(new pal.Store(path), function (arr) {
+          arr.sort(function (a, b) { return a.key.compare(b.key); });
+          assert.deepEqual(arr, entries);
+          done();
+        });
+      });
+      entries.forEach(function (entry) { s.write(entry); });
+      s.end();
+    });
+
     test('duplicate key', function (done) {
       var path = tmp.tmpNameSync();
       var key = new Buffer([1]);
@@ -92,6 +143,7 @@ suite('index', function () {
           try {
             fs.statSync(path);
           } catch (err) {
+            // Check that the folder was cleaned up.
             done();
           }
         }, 0);
@@ -100,13 +152,43 @@ suite('index', function () {
       s.end({key: key, value: new Buffer([2])});
     });
 
-    test('delete key', function (done) {
+    test('delete non-existing key', function (done) {
       var path = tmp.fileSync().name;
       var key = new Buffer([1]);
-      var s = pal.Store.createWriteStream(path, {noDistinct: true}, function (err) {
+      var opts = {noDistinct: true, compactionThreshold: 0};
+      var s = pal.Store.createWriteStream(path, opts, function (err) {
         assert.strictEqual(err, null);
         var store = new pal.Store(path);
-        // assert.equal(store.getNumValues(), 0); TODO: Count keys, not values.
+        assert.equal(store.getStatistics().numValues, 0);
+        assert.strictEqual(getValue(store, key), undefined);
+        done();
+      });
+      s.end({key: key, value: undefined});
+    });
+
+    test('delete key without compaction', function (done) {
+      var path = tmp.fileSync().name;
+      var key = new Buffer([1]);
+      var opts = {noDistinct: true, compactionThreshold: 0};
+      var s = pal.Store.createWriteStream(path, opts, function (err) {
+        assert.strictEqual(err, null);
+        var store = new pal.Store(path);
+        assert.equal(store.getStatistics().numValues, 1);
+        assert.strictEqual(getValue(store, key), undefined);
+        done();
+      });
+      s.write({key: key, value: key});
+      s.end({key: key, value: undefined});
+    });
+
+    test('delete key with compaction', function (done) {
+      var path = tmp.fileSync().name;
+      var key = new Buffer([1]);
+      var opts = {noDistinct: true};
+      var s = pal.Store.createWriteStream(path, opts, function (err) {
+        assert.strictEqual(err, null);
+        var store = new pal.Store(path);
+        assert.equal(store.getStatistics().numValues, 0); // After compaction.
         assert.strictEqual(getValue(store, key), undefined);
         done();
       });
@@ -128,6 +210,13 @@ suite('index', function () {
       store.read(key, buf);
       return buf;
     }
+  }
+
+  function getEntries(store, cb) {
+    var entries = [];
+    store.createReadStream()
+      .on('data', function (data) { entries.push(data); })
+      .on('end', function () { cb(entries); });
   }
 
 });
