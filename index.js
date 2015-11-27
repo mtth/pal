@@ -98,7 +98,20 @@ function Builder(dirPath, opts) {
   this._numPartitions = 0; // Active partitions.
   this._partitions = [];
 
-  this.on('finish', this._build.bind(this));
+  var self = this;
+  this.on('finish', function () {
+    var filePath = path.join(dirPath, '__full__');
+    var writer = fs.createWriteStream(filePath, {defaultEncoding: 'binary'})
+      .on('error', function (err) { self.emit('error', err); })
+      .on('open', function () { self._build(writer); })
+      .on('close', function () {
+        var isCompact = (
+          self._numValues === 0 || // Empty store is always compact (!).
+          self._numKeys / self._numValues >= self._compactionThreshold
+        );
+        self.emit('store', null, filePath, isCompact);
+      });
+  });
 }
 util.inherits(Builder, stream.Writable);
 
@@ -128,19 +141,7 @@ Builder.prototype._write = function (obj, encoding, cb) {
   cb();
 };
 
-Builder.prototype._build = function () {
-  var self = this;
-  var filePath = path.join(this._dirPath, '__full__');
-  var writer = fs.createWriteStream(filePath, {defaultEncoding: 'binary'})
-    .on('error', function (err) { self.emit('error', err); })
-    .on('close', function () {
-      var isCompact = (
-        self._numValues === 0 || // Empty store is always compact (!).
-        self._numKeys / self._numValues >= self._compactionThreshold
-      );
-      self.emit('store', null, filePath, isCompact);
-    });
-
+Builder.prototype._build = function (writer) {
   var offset = 0;
   var buf;
 
@@ -203,6 +204,7 @@ Builder.prototype._build = function () {
   indices.forEach(function (index) { writer.write(index); });
 
   // Append data.
+  var self = this;
   var keySize = 0;
   (function writeData() {
     var partition = self._partitions[keySize++];
