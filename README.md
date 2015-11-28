@@ -1,4 +1,4 @@
-# Pal [![Build status](https://travis-ci.org/mtth/pal.svg?branch=master)](https://travis-ci.org/mtth/pal)
+# Pal [![NPM version](https://img.shields.io/npm/v/pal.svg)](https://www.npmjs.com/package/pal) [![Build status](https://travis-ci.org/mtth/pal.svg?branch=master)](https://travis-ci.org/mtth/pal)
 
 Binary key-value store inspired by [PalDB](https://github.com/linkedin/PalDB).
 
@@ -6,8 +6,7 @@ Binary key-value store inspired by [PalDB](https://github.com/linkedin/PalDB).
 ## Features
 
 + Fast.
-+ Compact.
-+ Backed by a single file.
++ Backed by a single compact file.
 
 
 ## Installation
@@ -16,7 +15,12 @@ Binary key-value store inspired by [PalDB](https://github.com/linkedin/PalDB).
 $ npm install pal
 ```
 
-`pal` is compatible with all Node.js versions above `2.0`.
+`pal` is compatible with all [node.js][] versions above `2.0`.
+
+
+## Documentation
+
++ [API](https://github.com/mtth/pal/wiki/API)
 
 
 ## Examples
@@ -46,3 +50,6 @@ var pal = require('pal');
   To avoid unnecessary work, `pal` doesn't create new buffers when retrieving
   values. Rather, it copies the bytes to an existing destination buffer and
   returns the number of bytes written.
+
+
+[node.js]: https://nodejs.org/en/
