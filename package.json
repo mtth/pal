@@ -1,6 +1,13 @@
 {
   "name": "pal",
-  "version": "0.1.4",
+  "description": "Fast and compact write-once key-value store",
+  "version": "0.2.0",
+  "keyword": [
+    "key-value",
+    "store",
+    "binary",
+    "database"
+  ],
   "scripts": {
     "clean": "rm -rf build node_modules",
     "cover": "istanbul cover _mocha -- --ui tdd --reporter dot",
@@ -17,6 +24,9 @@
     "deps/paldb/include",
     "deps/paldb/src/reader.c"
   ],
+  "engines": {
+    "node": ">=2.0"
+  },
   "dependencies": {
     "nan": "^2.1.0",
     "tmp": "^0.0.28"
