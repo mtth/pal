@@ -2,6 +2,25 @@
 
 Binary key-value store inspired by [PalDB](https://github.com/linkedin/PalDB).
 
+
+## Features
+
++ Fast.
++ Compact.
++ Backed by a single file.
+
+
+## Installation
+
+```bash
+$ npm install pal
+```
+
+`pal` is compatible with all Node.js versions above `2.0`.
+
+
+## Examples
+
 ```javascript
 var pal = require('pal');
 ```

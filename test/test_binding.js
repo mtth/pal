@@ -9,7 +9,7 @@ var PATH = 'test/dat/numbers.store';
 
 suite('binding', function () {
 
-  suite('murmurHash', function () {
+  suite('hash', function () {
 
     test('non buffer', function () {
       assert.throws(function () { binding.hash(null); });

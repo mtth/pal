@@ -66,10 +66,7 @@ util.inherits(Reader, stream.Readable);
 Reader.prototype._read = function () {
   var self = this;
   this._iterator.next(function (err, key, value) {
-    if (err) {
-      self.emit('error', err);
-      return;
-    }
+    assert.strictEqual(err, null);
     self.push(key ? {key: key, value: value} : null);
   });
 };

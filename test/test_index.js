@@ -4,6 +4,7 @@
 
 var pal = require('../'),
     assert = require('assert'),
+    crypto = require('crypto'),
     fs = require('fs'),
     tmp = require('tmp');
 
@@ -57,7 +58,7 @@ suite('index', function () {
 
   });
 
-  suite('createWriteStream', function () {
+  suite('Store.createWriteStream', function () {
 
     test('empty', function (done) {
       var path = tmp.tmpNameSync();
@@ -194,6 +195,35 @@ suite('index', function () {
       });
       s.write({key: key, value: key});
       s.end({key: key, value: undefined});
+    });
+
+    test('large', function (done) {
+      var path = tmp.fileSync().name;
+      var numKeys = 500;
+      var s = pal.Store.createWriteStream(path, function (err) {
+        assert.strictEqual(err, null);
+        var store = new pal.Store(path);
+        assert.equal(store.getStatistics().numValues, numKeys);
+
+        var retrieved = 0;
+        store.createReadStream()
+          .on('data', function (entry) {
+            retrieved++;
+            assert(Buffer.isBuffer(entry.key));
+            assert.deepEqual(entry.key, entry.value);
+          })
+          .on('end', function () {
+            assert.equal(retrieved, numKeys);
+            done();
+          });
+      });
+
+      var count = numKeys;
+      while (count--) {
+        var key = crypto.randomBytes(64);
+        s.write({key: key, value: key});
+      }
+      s.end();
     });
 
   });
