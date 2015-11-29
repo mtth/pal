@@ -1,7 +1,7 @@
 {
   "name": "pal",
   "description": "Fast and compact write-once key-value store",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "keyword": [
     "key-value",
     "store",
