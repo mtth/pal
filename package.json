@@ -16,7 +16,7 @@
   },
   "files": [
     "binding.gyp",
-    "index.js",
+    "lib",
     "src",
     "deps/murmur3/murmur3.c",
     "deps/murmur3/murmur3.h",
