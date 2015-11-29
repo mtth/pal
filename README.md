@@ -1,6 +1,6 @@
 # Pal [![NPM version](https://img.shields.io/npm/v/pal.svg)](https://www.npmjs.com/package/pal) [![Build status](https://travis-ci.org/mtth/pal.svg?branch=master)](https://travis-ci.org/mtth/pal)
 
-Binary key-value store inspired by [PalDB](https://github.com/linkedin/PalDB).
+Key-value store inspired by [PalDB](https://github.com/linkedin/PalDB).
 
 
 ## Features
@@ -33,8 +33,8 @@ var pal = require('pal');
 
   ```javascript
   pal.Db.createWriteStream('sample.pal')
-    .write({key: new Buffer([1]), value: new Buffer([2, 3])})
-    .write({key: new Buffer([2]), value: new Buffer([4])})
+    .write({key: 12, value: 'twelve'})
+    .write({key: 48, value: 'forty-eight'})
     .end();
   ```
 
@@ -42,7 +42,7 @@ var pal = require('pal');
 
   ```javascript
   var db = new pal.Db('sample.pal');
-  var buf = db.get(new Buffer([1])); // Buffer([2, 3])
+  var str = db.get(48); // 'forty-eight'
   ```
 
 
