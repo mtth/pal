@@ -13,7 +13,7 @@ suite('index', function () {
 
     test('get', function (done) {
       var path = tmp.tmpNameSync();
-      var writer = pal.Db.createWriteStream(path, null, null, function (err) {
+      var writer = pal.Db.createWriteStream(path, function (err) {
         assert.strictEqual(err, null);
         var db = new pal.Db(path);
         assert.equal(db.get('hi'), 2);
