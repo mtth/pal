@@ -32,10 +32,10 @@ var pal = require('pal');
 + Create a store:
 
   ```javascript
-var writer = pal.Db.createWriteStream('sample.pal')
-writer.write({key: 12, value: 'twelve'})
-writer.write({key: 48, value: 'forty-eight'})
-writer.end();
+var ws = pal.Db.createWriteStream('sample.pal')
+ws.write({key: 12, value: 'twelve'})
+ws.write({key: 48, value: 'forty-eight'})
+ws.end();
   ```
 
 + Load a store and retrieve values:

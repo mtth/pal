@@ -17,18 +17,22 @@ struct key {
 
 int main() {
   srand(time(NULL));
-  pal_reader_t *reader = pal_init("../../etc/benchmarks/dat/paldb1000000-10.store");
+  pal_reader_t *reader = pal_init("../../etc/benchmarks/dat/paldb100-10.store");
   if (!reader) {
     printf("invalid reader\n");
     return 1;
   }
 
-  int32_t num_keys = pal_num_keys(reader);
+  pal_statistics_t stats;
+  pal_statistics(reader, &stats);
+  int32_t num_values = stats.num_values;
 
-  printf("timestamp: %lld\n", pal_timestamp(reader));
-  printf("total keys: %d\n", num_keys);
+  printf("timestamp: %lld\n", stats.timestamp);
+  printf("total values: %d\n", num_values);
+  printf("total index size: %d\n", stats.index_size);
+  printf("total data size: %lld\n", stats.data_size);
 
-  struct key *keys = calloc(num_keys, sizeof *keys);
+  struct key *keys = calloc(num_values, sizeof *keys);
 
   pal_iterator_t iter;
   pal_iterator_reset(&iter, reader);
@@ -48,7 +52,7 @@ int main() {
   int found = 0;
   clock_t begin = clock();
   while (j--) {
-    int i = rand() % 1000;
+    int i = rand() % num_values;
     struct key *key = keys + i;
     found += pal_get(reader, key->data, key->size, &v, &vl);
   }

@@ -1,4 +1,4 @@
-CFLAGS := -g -m64 -std=c99 -MMD -Wall -Wextra $(OPTFLAGS)
+CFLAGS := -O3 -m64 -std=c99 -MMD -Wall -Wextra $(OPTFLAGS)
 
 sources = $(wildcard src/*.c)
 objects = $(patsubst %.c, %.o, $(sources))
