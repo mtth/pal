@@ -4,7 +4,6 @@
 
 var pal = require('../lib'),
     assert = require('assert'),
-    avsc = require('avsc'),
     tmp = require('tmp');
 
 suite('index', function () {
@@ -13,7 +12,7 @@ suite('index', function () {
 
     test('get', function (done) {
       var path = tmp.tmpNameSync();
-      var writer = pal.Db.createWriteStream(path, function (err) {
+      var ws = pal.Db.createWriteStream(path, function (err) {
         assert.strictEqual(err, null);
         var db = new pal.Db(path);
         assert.equal(db.get('hi'), 2);
@@ -21,9 +20,9 @@ suite('index', function () {
         assert.strictEqual(db.get('key'), undefined);
         done();
       });
-      writer.write({key: 'hi', value: 2});
-      writer.write({key: 'hey', value: 5});
-      writer.end();
+      ws.write({key: 'hi', value: 2});
+      ws.write({key: 'hey', value: 5});
+      ws.end();
     });
 
   });
@@ -32,11 +31,8 @@ suite('index', function () {
 
     test('get', function (done) {
       var path = tmp.tmpNameSync();
-      var types = {
-        keyType: avsc.parse('int'),
-        valueType: avsc.parse('string')
-      };
-      var writer = pal.AvroDb.createWriteStream(path, types, function (err) {
+      var schemas = {keySchema: 'int', valueSchema: 'string'};
+      var ws = pal.AvroDb.createWriteStream(path, schemas, function (err) {
         assert.strictEqual(err, null);
         var db = new pal.AvroDb(path);
         assert.equal(db.get(48), 'forty eight');
@@ -45,9 +41,9 @@ suite('index', function () {
         assert.throws(function () { db.get('hi'); });
         done();
       });
-      writer.write({key: 6, value: 'six'});
-      writer.write({key: 48, value: 'forty eight'});
-      writer.end();
+      ws.write({key: 6, value: 'six'});
+      ws.write({key: 48, value: 'forty eight'});
+      ws.end();
     });
 
   });
