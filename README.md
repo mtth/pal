@@ -1,12 +1,6 @@
 # Pal [![NPM version](https://img.shields.io/npm/v/pal.svg)](https://www.npmjs.com/package/pal) [![Build status](https://travis-ci.org/mtth/pal.svg?branch=master)](https://travis-ci.org/mtth/pal)
 
-Key-value store inspired by [PalDB](https://github.com/linkedin/PalDB).
-
-
-## Features
-
-+ Fast.
-+ Backed by a single compact file.
+Key-value database inspired by [PalDB](https://github.com/linkedin/PalDB).
 
 
 ## Installation
@@ -29,16 +23,16 @@ $ npm install pal
 var pal = require('pal');
 ```
 
-+ Create a store:
++ Create a database:
 
   ```javascript
-var ws = pal.Db.createWriteStream('sample.pal')
-ws.write({key: 12, value: 'twelve'})
-ws.write({key: 48, value: 'forty-eight'})
-ws.end();
+  var ws = pal.Db.createWriteStream('sample.pal')
+  ws.write({key: 12, value: 'twelve'})
+  ws.write({key: 48, value: 'forty-eight'})
+  ws.end();
   ```
 
-+ Load a store and retrieve values:
++ Load a database and retrieve values:
 
   ```javascript
   var db = new pal.Db('sample.pal');
