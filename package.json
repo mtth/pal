@@ -1,13 +1,14 @@
 {
   "name": "pal",
   "description": "Embedded write-once key-value database",
-  "version": "0.3.3",
+  "version": "0.3.4",
   "keyword": [
     "key-value",
     "store",
     "binary",
     "database"
   ],
+  "main": "./lib",
   "scripts": {
     "clean": "rm -rf build node_modules",
     "cover": "istanbul cover _mocha -- --ui tdd --reporter dot",
